@@ -9,36 +9,45 @@ interface ExportButtonsProps {
 }
 
 const ExportButtons: React.FC<ExportButtonsProps> = ({ filters }) => {
-    const { isExporting, handleExportSankey, handleExportBalance, handleExportDynamics } = useExportData();
+    const { isExporting, handleExportSankey, handleExportBalance, handleExportDynamics, handleExportBalanceReport } = useExportData();
 
     return (
-        <Space direction="horizontal" size="small" wrap>
+        <Space  size="small" wrap>
             <Button
                 type="default"
                 icon={<DownloadOutlined />}
-                loading={isExporting === 'sankey'}
+                loading={isExporting === 'Санкей'}
                 onClick={() => handleExportSankey(filters)}
                 size="small"
             >
-                Sankey
+                Санкей
             </Button>
             <Button
                 type="default"
                 icon={<DownloadOutlined />}
-                loading={isExporting === 'balance'}
+                loading={isExporting === 'Баланс'}
                 onClick={() => handleExportBalance(filters)}
                 size="small"
             >
-                Balance
+                Баланс
             </Button>
             <Button
                 type="default"
                 icon={<DownloadOutlined />}
-                loading={isExporting === 'dynamics'}
+                loading={isExporting === 'Динамика'}
                 onClick={() => handleExportDynamics(filters)}
                 size="small"
             >
-                Dynamics
+                Динамика
+            </Button>
+            <Button
+                type="default"
+                icon={<DownloadOutlined />}
+                loading={isExporting === 'Баланс отчет'}
+                onClick={() => handleExportBalanceReport(filters)}
+                size="small"
+            >
+                Баланс Отчет ЦТР
             </Button>
         </Space>
     );

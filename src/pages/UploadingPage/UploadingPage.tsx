@@ -4,7 +4,7 @@ import {InboxOutlined, UploadOutlined, DatabaseOutlined, CheckCircleOutlined, De
 import type {UploadProps, StepsProps} from "antd";
 import * as XLSX from 'xlsx';
 import {useNavigate} from "react-router";
-import {fetchTables, filterTablesByType, type TableInfo} from "../../shared/api/tablesApi.ts";
+import {fetchTables, filterTablesByType, type TableInfo, type FileType} from "../../shared/api/tablesApi.ts";
 import {fetchFilterOptions} from "@/entities/filter";
 import {API_BASE_URL} from "@/shared/lib/constants";
 import dayjs, {Dayjs} from 'dayjs';
@@ -15,7 +15,8 @@ function getErrorMessage(error: unknown): string {
     return String(error);
 }
 
-type FileType = 'zvz' | 'rss' | 'keyWords' | 'ostatki' | 'otgruzVygruz';
+
+
 
 type UploadStatus = 'idle' | 'success';
 
@@ -44,24 +45,24 @@ const UploadingPage = () => {
 
     // Статус для каждого типа файла
     const [fileStatuses, setFileStatuses] = useState<Record<FileType, UploadStatus>>({
-        zvz: 'idle',
-        rss: 'idle',
-        keyWords: 'idle',
-        ostatki: 'idle',
-        otgruzVygruz: 'idle',
+        'Завоз/Вывоз': 'idle',
+        'RSS': 'idle',
+        'Словарь': 'idle',
+        'Остатки': 'idle',
+        'OV': 'idle',
     });
 
     // Сохраненные выборы файлов
     const [savedSelections, setSavedSelections] = useState<Record<FileType, FileSelection | null>>({
-        zvz: null,
-        rss: null,
-        keyWords: null,
-        ostatki: null,
-        otgruzVygruz: null,
+        'Завоз/Вывоз': null,
+        'RSS': null,
+        'Словарь': null,
+        'Остатки': null,
+        'OV': null,
     });
 
     // Текущая форма
-    const [currentFileType, setCurrentFileType] = useState<FileType>('zvz');
+    const [currentFileType, setCurrentFileType] = useState<FileType>('Завоз/Вывоз');
     const [activeTab, setActiveTab] = useState<'upload' | 'existing' | 'ostatki'>('upload');
 
     // Для загрузки нового файла
@@ -112,15 +113,15 @@ const UploadingPage = () => {
     // Загрузка списка состояний с сервера
     const loadSostoyania = async () => {
         // Проверяем, что все три типа файлов настроены
-        if (fileStatuses.zvz !== 'success' || fileStatuses.rss !== 'success' || fileStatuses.keyWords !== 'success') {
+        if (fileStatuses['Завоз/Вывоз'] !== 'success' || fileStatuses['RSS'] !== 'success' || fileStatuses['Словарь'] !== 'success') {
             message.warning('Сначала настройте Завоз/Вывоз, RSS и Словарь');
             return;
         }
 
         // Получаем названия таблиц из сохраненных выборов
-        const zvzSelection = savedSelections.zvz;
-        const rssSelection = savedSelections.rss;
-        const keyWordsSelection = savedSelections.keyWords;
+        const zvzSelection = savedSelections['Завоз/Вывоз'];
+        const rssSelection = savedSelections['RSS'];
+        const keyWordsSelection = savedSelections['Словарь'];
 
         if (!zvzSelection || !rssSelection || !keyWordsSelection) {
             message.warning('Не удалось получить названия таблиц');
@@ -303,7 +304,7 @@ const UploadingPage = () => {
             }
         } else {
             // Если нет сохраненного выбора, устанавливаем вкладку по умолчанию
-            if (newType === 'ostatki') {
+            if (newType === 'Остатки') {
                 setActiveTab('existing');
             } else {
                 setActiveTab('upload');
@@ -373,14 +374,14 @@ const UploadingPage = () => {
                 message.success(`${fileTypeOptions.find(o => o.value === currentFileType)?.label} успешно загружен на сервер`);
 
                 // Переключаемся на следующий тип файла после успешной загрузки
-                if (currentFileType === 'zvz' && fileStatuses.rss === 'idle') {
-                    handleFileTypeChange('rss');
-                } else if (currentFileType === 'rss' && fileStatuses.keyWords === 'idle') {
-                    handleFileTypeChange('keyWords');
-                } else if (currentFileType === 'keyWords' && fileStatuses.ostatki === 'idle') {
-                    handleFileTypeChange('ostatki');
-                } else if (currentFileType === 'ostatki' && fileStatuses.otgruzVygruz === 'idle') {
-                    handleFileTypeChange('otgruzVygruz');
+                if (currentFileType === 'Завоз/Вывоз' && fileStatuses['RSS'] === 'idle') {
+                    handleFileTypeChange('RSS');
+                } else if (currentFileType === 'RSS' && fileStatuses['Словарь'] === 'idle') {
+                    handleFileTypeChange('Словарь');
+                } else if (currentFileType === 'Словарь' && fileStatuses['Остатки'] === 'idle') {
+                    handleFileTypeChange('Остатки');
+                } else if (currentFileType === 'Остатки' && fileStatuses['OV'] === 'idle') {
+                    handleFileTypeChange('OV');
                 }
             } catch (error: unknown) {
                 message.error(`Ошибка при загрузке файла: ${getErrorMessage(error)}`);
@@ -410,23 +411,23 @@ const UploadingPage = () => {
             message.success(`${fileTypeOptions.find(o => o.value === currentFileType)?.label} успешно настроен`);
 
             // Переключаемся на следующий тип файла после успешного сохранения
-            if (currentFileType === 'zvz' && fileStatuses.rss === 'idle') {
-                handleFileTypeChange('rss');
-            } else if (currentFileType === 'rss' && fileStatuses.keyWords === 'idle') {
-                handleFileTypeChange('keyWords');
-            } else if (currentFileType === 'keyWords' && fileStatuses.ostatki === 'idle') {
-                handleFileTypeChange('ostatki');
-            } else if (currentFileType === 'ostatki' && fileStatuses.otgruzVygruz === 'idle') {
-                handleFileTypeChange('otgruzVygruz');
+            if (currentFileType === 'Завоз/Вывоз' && fileStatuses['RSS'] === 'idle') {
+                handleFileTypeChange('RSS');
+            } else if (currentFileType === 'RSS' && fileStatuses['Словарь'] === 'idle') {
+                handleFileTypeChange('Словарь');
+            } else if (currentFileType === 'Словарь' && fileStatuses['Остатки'] === 'idle') {
+                handleFileTypeChange('Остатки');
+            } else if (currentFileType === 'Остатки' && fileStatuses['OV'] === 'idle') {
+                handleFileTypeChange('OV');
             }
         }
     };
 
     // Переход на главную страницу с параметрами таблиц
     const handleSubmitAll = async () => {
-        const allConfigured = fileStatuses.zvz === 'success' &&
-                             fileStatuses.rss === 'success' &&
-                             fileStatuses.keyWords === 'success';
+        const allConfigured = fileStatuses['Завоз/Вывоз'] === 'success' &&
+            fileStatuses['RSS'] === 'success' &&
+            fileStatuses['Словарь'] === 'success';
 
         if (!allConfigured) {
             message.warning('Пожалуйста, настройте все три типа файлов');
@@ -436,7 +437,7 @@ const UploadingPage = () => {
         const tableNames: Record<string, string> = {};
 
         // Собираем названия таблиц из сохраненных выборов
-        for (const fileType of ['zvz', 'rss', 'keyWords'] as FileType[]) {
+        for (const fileType of ['Завоз/Вывоз', 'RSS', 'Словарь'] as FileType[]) {
             const selection = savedSelections[fileType];
             if (!selection) continue;
 
@@ -451,9 +452,9 @@ const UploadingPage = () => {
 
         // Формируем URL с параметрами таблиц
         const params = new URLSearchParams({
-            zvz_table: tableNames['zvz'] || '',
-            rss_table: tableNames['rss'] || '',
-            spr_table: tableNames['keyWords'] || '',
+            zvz_table: tableNames['Завоз/Вывоз'] || '',
+            rss_table: tableNames['RSS'] || '',
+            spr_table: tableNames['Словарь'] || '',
         });
 
         // Добавляем таблицу остатков, если она была настроена
@@ -462,9 +463,9 @@ const UploadingPage = () => {
         if (ostatkiStatus === 'success' && ostatkiTableName) {
             // Новая таблица остатков через вкладку "Добавить остатки"
             leftoversTableName = ostatkiTableName;
-        } else if (fileStatuses.ostatki === 'success' && savedSelections.ostatki?.existingTableName) {
+        } else if (fileStatuses['Остатки'] === 'success' && savedSelections['Остатки']?.existingTableName) {
             // Существующая таблица остатков выбранная через тип данных "Остатки"
-            leftoversTableName = savedSelections.ostatki.existingTableName;
+            leftoversTableName = savedSelections['Остатки'].existingTableName;
         }
 
         if (leftoversTableName) {
@@ -472,8 +473,8 @@ const UploadingPage = () => {
         }
 
         // Добавляем таблицу отгруз/выгруз, если она была настроена
-        if (fileStatuses.otgruzVygruz === 'success') {
-            const otgruzSelection = savedSelections.otgruzVygruz;
+        if (fileStatuses['OV'] === 'success') {
+            const otgruzSelection = savedSelections['OV'];
             if (otgruzSelection) {
                 const otgruzTableName = otgruzSelection.type === 'upload'
                     ? otgruzSelection.tableName
@@ -489,10 +490,10 @@ const UploadingPage = () => {
 
     // Очистка всего
     const resetAll = () => {
-        setFileStatuses({zvz: 'idle', rss: 'idle', keyWords: 'idle', ostatki: 'idle', otgruzVygruz: 'idle'});
-        setSavedSelections({zvz: null, rss: null, keyWords: null, ostatki: null, otgruzVygruz: null});
+        setFileStatuses({'Завоз/Вывоз': 'idle', 'RSS': 'idle', 'Словарь': 'idle', 'Остатки': 'idle', 'OV': 'idle'});
+        setSavedSelections({'Завоз/Вывоз': null, 'RSS': null, 'Словарь': null, 'Остатки': null, 'OV': null});
         resetCurrentForm();
-        setCurrentFileType('zvz');
+        setCurrentFileType('Завоз/Вывоз');
         setActiveTab('upload');
         // Очистка остатков
         setOstatkiList([]);
@@ -526,7 +527,7 @@ const UploadingPage = () => {
     };
 
     // Динамический список вкладок в зависимости от типа файла
-    const tabItems = currentFileType === 'ostatki' ? [
+    const tabItems = currentFileType === 'Остатки' ? [
         {
             key: 'existing',
             label: <span><DatabaseOutlined/> Использовать существующую таблицу</span>,
@@ -549,34 +550,34 @@ const UploadingPage = () => {
     const stepsItems: StepsProps['items'] = [
         {
             title: 'Завоз/Вывоз',
-            status: fileStatuses.zvz === 'success' ? 'finish' : 'wait',
-            icon: fileStatuses.zvz === 'success' ? <CheckCircleOutlined/> : undefined,
+            status: fileStatuses['Завоз/Вывоз'] === 'success' ? 'finish' : 'wait',
+            icon: fileStatuses['Завоз/Вывоз'] === 'success' ? <CheckCircleOutlined/> : undefined,
         },
         {
             title: 'RSS',
-            status: fileStatuses.rss === 'success' ? 'finish' : 'wait',
-            icon: fileStatuses.rss === 'success' ? <CheckCircleOutlined/> : undefined,
+            status: fileStatuses['RSS'] === 'success' ? 'finish' : 'wait',
+            icon: fileStatuses['RSS'] === 'success' ? <CheckCircleOutlined/> : undefined,
         },
         {
             title: 'Словарь',
-            status: fileStatuses.keyWords === 'success' ? 'finish' : 'wait',
-            icon: fileStatuses.keyWords === 'success' ? <CheckCircleOutlined/> : undefined,
+            status: fileStatuses['Словарь'] === 'success' ? 'finish' : 'wait',
+            icon: fileStatuses['Словарь'] === 'success' ? <CheckCircleOutlined/> : undefined,
         },
         {
             title: 'Остатки (опционально)',
-            status: (ostatkiStatus === 'success' || fileStatuses.ostatki === 'success') ? 'finish' : 'wait',
-            icon: (ostatkiStatus === 'success' || fileStatuses.ostatki === 'success') ? <CheckCircleOutlined/> : undefined,
+            status: (ostatkiStatus === 'success' || fileStatuses['Остатки'] === 'success') ? 'finish' : 'wait',
+            icon: (ostatkiStatus === 'success' || fileStatuses['Остатки'] === 'success') ? <CheckCircleOutlined/> : undefined,
         },
         {
             title: 'Отгруз/Выгруз (опционально)',
-            status: fileStatuses.otgruzVygruz === 'success' ? 'finish' : 'wait',
-            icon: fileStatuses.otgruzVygruz === 'success' ? <CheckCircleOutlined/> : undefined,
+            status: fileStatuses['OV'] === 'success' ? 'finish' : 'wait',
+            icon: fileStatuses['OV'] === 'success' ? <CheckCircleOutlined/> : undefined,
         }
     ];
 
-    const allConfigured = fileStatuses.zvz === 'success' &&
-                         fileStatuses.rss === 'success' &&
-                         fileStatuses.keyWords === 'success';
+    const allConfigured = fileStatuses['Завоз/Вывоз'] === 'success' &&
+        fileStatuses['RSS'] === 'success' &&
+        fileStatuses['Словарь'] === 'success';
 
     return (
         <div>
@@ -698,8 +699,8 @@ const UploadingPage = () => {
                                             isLoadingTables
                                                 ? 'Загрузка...'
                                                 : filteredTables.length === 0
-                                                ? `Нет доступных таблиц типа "${fileTypeOptions.find(o => o.value === currentFileType)?.label}"`
-                                                : null
+                                                    ? `Нет доступных таблиц типа "${fileTypeOptions.find(o => o.value === currentFileType)?.label}"`
+                                                    : null
                                         }
                                     />
                                 </div>

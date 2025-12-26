@@ -1,8 +1,10 @@
 import { API_BASE_URL } from '@/shared/lib/constants';
 
+export type FileType = 'Завоз/Вывоз' | 'RSS' | 'Словарь' | 'Остатки' | 'OV';
+
 export interface TableInfo {
   table_name: string;
-  table_type: 'zvz' | 'rss' | 'keyWords' | 'ostatki' | 'otgruzVygruz';
+  table_type: FileType;
   created_at?: string;
 }
 
@@ -19,13 +21,13 @@ export interface TablesApiResponse {
 
 const TABLES_API_URL = `${API_BASE_URL}/tables`;
 
-// Маппинг типов таблиц из API в локальные типы
-const TABLE_TYPE_MAP: Record<string, 'zvz' | 'rss' | 'keyWords' | 'ostatki' | 'otgruzVygruz'> = {
-  'Завоз_Вывоз': 'zvz',
-  'RSS': 'rss',
-  'Словарь': 'keyWords',
-  'Остатки': 'ostatki',
-  'Отгруз_Выгруз': 'otgruzVygruz',
+// Маппинг типов таблиц из API (с подчеркиваниями) в локальные типы (с слэшами)
+const TABLE_TYPE_MAP: Record<string, FileType> = {
+  'Завоз_Вывоз': 'Завоз/Вывоз',
+  'RSS': 'RSS',
+  'Словарь': 'Словарь',
+  'Остатки': 'Остатки',
+  'Отгруз_Выгруз': 'OV',
 };
 
 /**
@@ -76,7 +78,7 @@ export async function fetchTables(): Promise<TableInfo[]> {
  */
 export function filterTablesByType(
   tables: TableInfo[],
-  type: 'zvz' | 'rss' | 'keyWords' | 'ostatki' | 'otgruzVygruz'
+  type: FileType
 ): TableInfo[] {
   return tables.filter((table) => table.table_type === type);
 }
