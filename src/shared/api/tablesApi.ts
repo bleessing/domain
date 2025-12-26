@@ -1,0 +1,79 @@
+export interface TableInfo {
+  table_name: string;
+  table_type: 'zvz' | 'rss' | 'keyWords' | 'ostatki';
+  created_at?: string;
+}
+
+export interface TableTypeGroup {
+  table_type: string;
+  tables: string[];
+  count: number;
+}
+
+export interface TablesApiResponse {
+  data: TableTypeGroup[];
+
+}
+
+const API_BASE_URL = 'https://1b772d47ef2f.ngrok-free.app/api/v1/tables';
+
+// Маппинг типов таблиц из API в локальные типы
+const TABLE_TYPE_MAP: Record<string, 'zvz' | 'rss' | 'keyWords' | 'ostatki'> = {
+  'Завоз_Вывоз': 'zvz',
+  'RSS': 'rss',
+  'Словарь': 'keyWords',
+  'Остатки': 'ostatki',
+};
+
+/**
+ * Получает список всех доступных таблиц с бекенда
+ */
+export async function fetchTables(): Promise<TableInfo[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+      },
+
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch tables: ${response.statusText}`);
+    }
+
+    const apiResponse: TablesApiResponse = await response.json();
+
+    // Преобразуем формат API в плоский список TableInfo
+    const tablesList: TableInfo[] = [];
+
+    apiResponse.data.forEach((group) => {
+      const mappedType = TABLE_TYPE_MAP[group.table_type];
+
+      if (mappedType) {
+        group.tables.forEach((tableName) => {
+          tablesList.push({
+            table_name: tableName,
+            table_type: mappedType,
+          });
+        });
+      }
+    });
+
+    return tablesList;
+  } catch (error) {
+    console.error('Ошибка загрузки таблиц:', error);
+    throw error;
+  }
+}
+
+/**
+ * Фильтрует таблицы по типу
+ */
+export function filterTablesByType(
+  tables: TableInfo[],
+  type: 'zvz' | 'rss' | 'keyWords' | 'ostatki'
+): TableInfo[] {
+  return tables.filter((table) => table.table_type === type);
+}
