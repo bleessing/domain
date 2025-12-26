@@ -1,3 +1,5 @@
+import { API_BASE_URL } from '@/shared/lib/constants';
+
 export interface TableInfo {
   table_name: string;
   table_type: 'zvz' | 'rss' | 'keyWords' | 'ostatki' | 'otgruzVygruz';
@@ -15,7 +17,7 @@ export interface TablesApiResponse {
 
 }
 
-const API_BASE_URL = 'https://1b772d47ef2f.ngrok-free.app/api/v1/tables';
+const TABLES_API_URL = `${API_BASE_URL}/tables`;
 
 // Маппинг типов таблиц из API в локальные типы
 const TABLE_TYPE_MAP: Record<string, 'zvz' | 'rss' | 'keyWords' | 'ostatki' | 'otgruzVygruz'> = {
@@ -31,7 +33,7 @@ const TABLE_TYPE_MAP: Record<string, 'zvz' | 'rss' | 'keyWords' | 'ostatki' | 'o
  */
 export async function fetchTables(): Promise<TableInfo[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}`, {
+    const response = await fetch(TABLES_API_URL, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

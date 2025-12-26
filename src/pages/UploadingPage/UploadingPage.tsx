@@ -6,6 +6,7 @@ import * as XLSX from 'xlsx';
 import {useNavigate} from "react-router";
 import {fetchTables, filterTablesByType, type TableInfo} from "../../shared/api/tablesApi.ts";
 import {fetchFilterOptions} from "@/entities/filter";
+import {API_BASE_URL} from "@/shared/lib/constants";
 import dayjs, {Dayjs} from 'dayjs';
 
 // Вспомогательная функция для получения сообщения об ошибке
@@ -208,7 +209,7 @@ const UploadingPage = () => {
             // Форматируем дату в строку YYYY-MM-DD (ISO формат даты без времени)
             const formattedDate = ostatkiMonthYear.format('YYYY-MM-DD');
 
-            const response = await fetch('https://1b772d47ef2f.ngrok-free.app/api/v1/leftovers', {
+            const response = await fetch(`${API_BASE_URL}/leftovers`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -335,7 +336,7 @@ const UploadingPage = () => {
                 formData.append('table_name', tableName);
                 formData.append('sheet_name', selectedSheet);
 
-                const response = await fetch('https://1b772d47ef2f.ngrok-free.app/api/v1/upload/file', {
+                const response = await fetch(`${API_BASE_URL}/upload/file`, {
                     method: 'POST',
                     headers: {
                         'ngrok-skip-browser-warning': 'false',

@@ -1,11 +1,55 @@
 import Plot from 'react-plotly.js';
 import type { PlotlySankeyData } from '@/entities/sankey';
+import type { Config } from 'plotly.js';
 
 interface SankeyDiagramProps {
     data: PlotlySankeyData;
     title?: string;
     colorScheme?: 'default' | 'pastel' | 'vibrant' | 'ocean' | 'sunset';
 }
+
+interface SankeyTrace {
+    type: 'sankey';
+    orientation: 'h';
+    arrangement: 'freeform';
+    node: {
+        pad: number;
+        thickness: number;
+        line: {
+            color: string;
+            width: number;
+        };
+        label: string[];
+        color: string[];
+        customdata: number[][];
+        hovertemplate: string;
+    };
+    link: {
+        source: number[];
+        value: number[];
+        target: number[];
+        color: string[];
+        hovertemplate: string;
+    };
+    iterations: number;
+    valueformat: string;
+    valuesuffix: string;
+}
+
+interface SankeyLayout {
+    title: {
+        text: string;
+        font: { size: number };
+    };
+    font: { size: number };
+    width: number;
+    height: number;
+    paper_bgcolor: string;
+    plot_bgcolor: string;
+    margin: { l: number; r: number; t: number; b: number };
+}
+
+type SankeyConfig = Partial<Config>;
 
 const COLOR_SCHEMES = {
     default: [
@@ -74,65 +118,67 @@ const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
         incomingLinks[link.target]++;
     });
 
+    const sankeyTrace: SankeyTrace = {
+        type: 'sankey',
+        orientation: 'h',
+        arrangement: 'freeform',
+        node: {
+            pad: 10,
+            thickness: 20,
+            line: {
+                color: '#56a7f8',
+                width: 1.5,
+            },
+            label: data.nodes.map((node) => node.label),
+            color: nodeColors,
+            // Используем массив массивов вместо массива объектов
+            customdata: data.nodes.map((_, index) => [
+                incomingLinks[index],
+                outgoingLinks[index]
+            ]),
+            hovertemplate:
+                '<b>%{label}</b><br>' +
+                'Общий поток: %{value:.2f} шт<br>' +
+                'Входящих связей: %{customdata[0]}<br>' +
+                'Исходящих связей: %{customdata[1]}' +
+                '<extra></extra>',
+        },
+        link: {
+            source: data.links.map((link) => link.source),
+            value: data.links.map((link) => link.value),
+            target: data.links.map((link) => link.target),
+            color: linkColors,
+            hovertemplate: '%{value:.2f} шт<extra></extra>',
+        },
+        iterations: 50,
+        valueformat: '.2f',
+        valuesuffix: ' шт',
+    };
+
+    const layout: SankeyLayout = {
+        title: {
+            text: title,
+            font: { size: 18 }
+        },
+        font: { size: 12 },
+        width: 1050,
+        height: 900,
+        paper_bgcolor: '#ffffff',
+        plot_bgcolor: '#f2f2f2',
+        margin: { l: 20, r: 20, t: 50, b: 20 },
+    };
+
+    const config: SankeyConfig = {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false,
+    };
+
     return (
         <Plot
-            data={[
-                {
-                    type: 'sankey',
-                    orientation: 'h',
-                    arrangement: 'freeform',
-                    node: {
-                        pad: 10,
-                        thickness: 20,
-                        line: {
-                            color: '#56a7f8',
-                            width: 1.5,
-                        },
-                        label: data.nodes.map((node) => node.label),
-                        color: nodeColors,
-                        // Используем массив массивов вместо массива объектов
-                        customdata: data.nodes.map((_, index) => [
-                            incomingLinks[index],
-                            outgoingLinks[index]
-                        ]),
-                        hovertemplate:
-                            '<b>%{label}</b><br>' +
-                            'Общий поток: %{value:.2f} шт<br>' +
-                            'Входящих связей: %{customdata[0]}<br>' +
-                            'Исходящих связей: %{customdata[1]}' +
-                            '<extra></extra>',
-                    },
-                    link: {
-                        source: data.links.map((link) => link.source),
-                        value: data.links.map((link) => link.value),
-                        target: data.links.map((link) => link.target),
-                        color: linkColors,
-                        hovertemplate: '%{value:.2f} шт<extra></extra>',
-                    },
-                    // Параметры оптимизации
-                    iterations: 50,
-                    // Форматирование значений
-                    valueformat: '.2f',
-                    valuesuffix: ' шт',
-                } as any, // Используем type assertion для обхода строгой типизации Plotly
-            ]}
-            layout={{
-                title: {
-                    text: title,
-                    font: {size: 18, weight: 600}
-                },
-                font: {size: 12},
-                width: 1050,
-                height: 900,
-                paper_bgcolor: '#ffffff',
-                plot_bgcolor: '#f2f2f2',
-                margin: {l: 20, r: 20, t: 50, b: 20},
-            }}
-            config={{
-                responsive: true,
-                displayModeBar: true,
-                displaylogo: false,
-            }}
+            data={[sankeyTrace] as any}
+            layout={layout as any}
+            config={config}
         />
     );
 };
