@@ -1,1 +1,1 @@
-export { FiltersPanel } from './ui';
+export { default as FiltersPanel } from './ui/FiltersPanel';

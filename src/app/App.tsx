@@ -1,8 +1,14 @@
 import './App.css';
+import { Provider } from 'react-redux';
 import { DashboardPage } from '@/pages/dashboard';
+import { store } from './store';
 
 function App() {
-    return <DashboardPage />;
+    return (
+        <Provider store={store}>
+            <DashboardPage />
+        </Provider>
+    );
 }
 
 export default App;

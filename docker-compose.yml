@@ -1,17 +1,32 @@
+version: '3.8'
 
 services:
-  balance-frontend:
+  balance-app:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: balance-app
+      args:
+        # Передаем API URL из .env файла или используем значение по умолчанию
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://your-api-domain.com/api/v1}
     ports:
-      - "3000:3000"
+      - "3000:80"
     restart: unless-stopped
-    environment:
-      - NODE_ENV=production
-    networks:
-      - balance-network
-networks:
-  balance-network:
-    driver: bridge
+    container_name: balance-app
+
+    # Healthcheck
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+    # Ограничения ресурсов
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M

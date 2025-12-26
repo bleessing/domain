@@ -1,2 +1,2 @@
-export { LeftoversChart } from './ui';
+export { default as LeftoversChart } from './ui/LeftoversChart';
 export { useLeftoversData } from './model/useLeftoversData';
