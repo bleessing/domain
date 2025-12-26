@@ -1,11 +1,58 @@
 import Plot from 'react-plotly.js';
 import type { DynamicsResponse } from '@/entities/dynamics';
+import type { Config } from 'plotly.js';
 
 interface DynamicsChartProps {
     data: DynamicsResponse;
     title?: string;
     chartType?: 'bar' | 'line';
 }
+
+interface DynamicsTrace {
+    x: string[];
+    y: number[];
+    name: string;
+    type: 'bar' | 'scatter';
+    mode?: 'lines';
+    marker: {
+        color: string;
+    };
+    line?: {
+        color: string;
+        width: number;
+    };
+}
+
+interface PlotLayout {
+    title: { text: string };
+    xaxis: {
+        title: string;
+        type: 'date';
+        tickformat: string;
+        tickangle: number;
+    };
+    yaxis: {
+        title: string;
+        autorange: boolean;
+    };
+    barmode?: 'group';
+    hovermode: 'x unified';
+    legend: {
+        orientation: 'h';
+        x: number;
+        xanchor: 'center';
+        y: number;
+        yanchor: 'top';
+    };
+    autosize: boolean;
+    width: number;
+    height: number;
+    paper_bgcolor: string;
+    plot_bgcolor: string;
+    margin: { l: number; r: number; t: number; b: number };
+}
+
+type PlotConfig = Partial<Config>;
 
 const DynamicsChart: React.FC<DynamicsChartProps> = ({
     data,
@@ -29,7 +76,7 @@ const DynamicsChart: React.FC<DynamicsChartProps> = ({
     };
 
     // Создаем трейсы для Plotly
-    const traces = data.series.map(series => {
+    const traces: DynamicsTrace[] = data.series.map(series => {
         const color = getColorForSeries(series.name);
         return {
             x: data.dates,
@@ -47,46 +94,47 @@ const DynamicsChart: React.FC<DynamicsChartProps> = ({
         };
     });
 
+    const layout: PlotLayout = {
+        title: { text: title },
+        xaxis: {
+            title: 'Дата',
+            type: 'date',
+            tickformat: '%Y-%m-%d',
+            tickangle: -25,
+        },
+        yaxis: {
+            title: 'Количество (шт)',
+            autorange: true,
+        },
+        barmode: chartType === 'bar' ? 'group' : undefined,
+        hovermode: 'x unified',
+        legend: {
+            orientation: 'h',
+            x: 0.5,
+            xanchor: 'center',
+            y: 1.15,
+            yanchor: 'top',
+        },
+        autosize: true,
+        width: 1440,
+        height: 650,
+        paper_bgcolor: '#ffffff',
+        plot_bgcolor: '#f9f9f9',
+        margin: { l: 60, r: 40, t: 140, b: 80 },
+    };
+
+    const config: PlotConfig = {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false,
+        modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+    };
+
     return (
         <Plot
             data={traces as any}
-            layout={{
-                title: {
-                    text: title,
-                    font: { size:18, weight: 600 }
-                },
-                xaxis: {
-                    title: 'Дата',
-                    type: 'date',
-                    tickformat: '%Y-%m-%d',
-                    tickangle: -25,
-                },
-                yaxis: {
-                    title: 'Количество (шт)',
-                    autorange: true,
-                },
-                barmode: chartType === 'bar' ? 'group' : undefined,
-                hovermode: 'x unified',
-                legend: {
-                    orientation: 'h',
-                    x: 0.5,
-                    xanchor: 'center',
-                    y: 1.15,
-                    yanchor: 'top',
-                },
-                autosize: true,
-                width: 1440,
-                height: 650,
-                paper_bgcolor: '#ffffff',
-                plot_bgcolor: '#f9f9f9',
-                margin: { l: 60, r: 40, t: 140, b: 80 },
-            }}
-            config={{
-                responsive: true,
-                displayModeBar: true,
-                displaylogo: false,
-                modeBarButtonsToRemove: ['lasso2d', 'select2d'],
-            }}
+            layout={layout as any}
+            config={config}
         />
     );
 };

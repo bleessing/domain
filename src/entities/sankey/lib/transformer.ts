@@ -1,5 +1,36 @@
 import type { PlotlySankeyData, SankeyNode, SankeyLink } from '../model/types';
 
+// Backend data item interface
+interface BackendDataItem {
+    'Откуда'?: string;
+    'Куда'?: string;
+    'SUM(Количество (шт))'?: number | string;
+    source?: string;
+    target?: string;
+    value?: number | string;
+}
+
+// Backend response formats
+interface BackendResponseNodes {
+    nodes: BackendDataItem[];
+}
+
+interface BackendResponseResult {
+    result: Array<{
+        data: BackendDataItem[];
+    }>;
+}
+
+interface BackendResponseData {
+    data: BackendDataItem[];
+}
+
+type BackendResponse =
+    | BackendResponseNodes
+    | BackendResponseResult
+    | BackendResponseData
+    | BackendDataItem[];
+
 // Color palette for different stages
 const stageColors: Record<string, string> = {
     // Stage 1 - Input states (красные/оранжевые оттенки)
@@ -48,19 +79,19 @@ const getNodeColor = (label: string): string => {
 };
 
 export const transformBackendDataToSankey = (
-    backendResponse: any,
+    backendResponse: BackendResponse,
     selectedStates?: string[]
 ): PlotlySankeyData => {
     // Проверяем, какой формат данных пришел
-    let rawData: any[];
+    let rawData: BackendDataItem[];
 
-    if (backendResponse.nodes && Array.isArray(backendResponse.nodes)) {
+    if ('nodes' in backendResponse && Array.isArray(backendResponse.nodes)) {
         rawData = backendResponse.nodes;
-    } else if (backendResponse.result && Array.isArray(backendResponse.result)) {
+    } else if ('result' in backendResponse && Array.isArray(backendResponse.result)) {
         rawData = backendResponse.result[0].data;
     } else if (Array.isArray(backendResponse)) {
         rawData = backendResponse;
-    } else if (backendResponse.data && Array.isArray(backendResponse.data)) {
+    } else if ('data' in backendResponse && Array.isArray(backendResponse.data)) {
         rawData = backendResponse.data;
     } else {
         console.error('Неизвестный формат данных:', backendResponse);
@@ -69,16 +100,16 @@ export const transformBackendDataToSankey = (
 
     // Фильтрация данных по выбранным состояниям
     if (selectedStates && selectedStates.length > 0) {
-        rawData = rawData.filter((item: any) => {
+        rawData = rawData.filter((item: BackendDataItem) => {
             const source = item['Откуда'] || item.source;
             const target = item['Куда'] || item.target;
-            return selectedStates.includes(source) || selectedStates.includes(target);
+            return selectedStates.includes(source || '') || selectedStates.includes(target || '');
         });
     }
 
     // Collect all unique nodes
     const nodeLabels = new Set<string>();
-    rawData.forEach((item: any) => {
+    rawData.forEach((item: BackendDataItem) => {
         const source = item['Откуда'] || item.source;
         const target = item['Куда'] || item.target;
 
@@ -101,15 +132,15 @@ export const transformBackendDataToSankey = (
 
     // Create links
     const links: SankeyLink[] = rawData
-        .map((item: any) => {
+        .map((item: BackendDataItem) => {
             const source = item['Откуда'] || item.source;
             const target = item['Куда'] || item.target;
             const rawValue = item['SUM(Количество (шт))'] || item.value;
 
-            const value = typeof rawValue === 'number' ? rawValue : parseFloat(rawValue) || 0;
+            const value = typeof rawValue === 'number' ? rawValue : parseFloat(String(rawValue)) || 0;
 
-            const sourceIndex = nodeIndexMap.get(source);
-            const targetIndex = nodeIndexMap.get(target);
+            const sourceIndex = nodeIndexMap.get(source || '');
+            const targetIndex = nodeIndexMap.get(target || '');
 
             if (sourceIndex === undefined || targetIndex === undefined) {
                 return null;
@@ -123,7 +154,7 @@ export const transformBackendDataToSankey = (
                 source: sourceIndex,
                 target: targetIndex,
                 value: value,
-                color: `${getNodeColor(source)}40`,
+                color: `${getNodeColor(source || '')}40`,
             };
         })
         .filter((link): link is SankeyLink => link !== null);

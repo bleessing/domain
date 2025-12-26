@@ -1,6 +1,6 @@
 export interface TableInfo {
   table_name: string;
-  table_type: 'zvz' | 'rss' | 'keyWords' | 'ostatki';
+  table_type: 'zvz' | 'rss' | 'keyWords' | 'ostatki' | 'otgruzVygruz';
   created_at?: string;
 }
 
@@ -18,11 +18,12 @@ export interface TablesApiResponse {
 const API_BASE_URL = 'https://1b772d47ef2f.ngrok-free.app/api/v1/tables';
 
 // Маппинг типов таблиц из API в локальные типы
-const TABLE_TYPE_MAP: Record<string, 'zvz' | 'rss' | 'keyWords' | 'ostatki'> = {
+const TABLE_TYPE_MAP: Record<string, 'zvz' | 'rss' | 'keyWords' | 'ostatki' | 'otgruzVygruz'> = {
   'Завоз_Вывоз': 'zvz',
   'RSS': 'rss',
   'Словарь': 'keyWords',
   'Остатки': 'ostatki',
+  'Отгруз_Выгруз': 'otgruzVygruz',
 };
 
 /**
@@ -73,7 +74,7 @@ export async function fetchTables(): Promise<TableInfo[]> {
  */
 export function filterTablesByType(
   tables: TableInfo[],
-  type: 'zvz' | 'rss' | 'keyWords' | 'ostatki'
+  type: 'zvz' | 'rss' | 'keyWords' | 'ostatki' | 'otgruzVygruz'
 ): TableInfo[] {
   return tables.filter((table) => table.table_type === type);
 }

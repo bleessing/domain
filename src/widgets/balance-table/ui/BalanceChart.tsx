@@ -1,4 +1,5 @@
 import Plot from 'react-plotly.js';
+import type { Config } from 'plotly.js';
 
 interface DataType {
     key: string;
@@ -14,6 +15,44 @@ interface BalanceChartProps {
     groupBy?: 'state' | 'flow';
     title?: string;
 }
+
+interface PlotTrace {
+    x: string[];
+    y: number[];
+    name: string;
+    type: 'scatter';
+    mode: 'lines+markers';
+    line: { color: string; width: number; dash?: string };
+    marker: { size: number };
+    legendgroup: string;
+}
+
+interface BalanceLayout {
+    title: { text: string };
+    xaxis: {
+        title: string;
+        autorange: boolean;
+        tickangle: number;
+    };
+    yaxis: {
+        title: string;
+        autorange: boolean;
+    };
+    hovermode: 'closest';
+    legend: {
+        orientation: 'v';
+        x: number;
+        y: number;
+        xanchor: 'left';
+    };
+    width: number;
+    height: number;
+    paper_bgcolor: string;
+    plot_bgcolor: string;
+    margin: { l: number; r: number; t: number; b: number };
+}
+
+type BalanceConfig = Partial<Config>;
 
 const BalanceChart: React.FC<BalanceChartProps> = ({
     data,
@@ -40,7 +79,7 @@ const BalanceChart: React.FC<BalanceChartProps> = ({
     });
 
     // Создаем трейсы для графика
-    const traces: any[] = [];
+    const traces: PlotTrace[] = [];
     const colors = {
         income: '#2ca02c',  // зеленый для прихода
         expense: '#d62728', // красный для расхода
@@ -95,41 +134,42 @@ const BalanceChart: React.FC<BalanceChartProps> = ({
         });
     });
 
+    const layout: BalanceLayout = {
+        title: { text: title },
+        xaxis: {
+            title: groupBy === 'state' ? 'Поток' : 'Состояние',
+            autorange: true,
+            tickangle: -45,
+        },
+        yaxis: {
+            title: 'Сумма',
+            autorange: true,
+        },
+        hovermode: 'closest',
+        legend: {
+            orientation: 'v',
+            x: 1.02,
+            y: 1,
+            xanchor: 'left',
+        },
+        width: 1200,
+        height: 600,
+        paper_bgcolor: '#ffffff',
+        plot_bgcolor: '#f9f9f9',
+        margin: { l: 60, r: 200, t: 60, b: 120 },
+    };
+
+    const config: BalanceConfig = {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false,
+    };
+
     return (
         <Plot
-            data={traces}
-            layout={{
-                title: {
-                    text: title,
-                    font: { size: 18, weight: 600 }
-                },
-                xaxis: {
-                    title: groupBy === 'state' ? 'Поток' : 'Состояние',
-                    autorange: true,
-                    tickangle: -45,
-                },
-                yaxis: {
-                    title: 'Сумма',
-                    autorange: true,
-                },
-                hovermode: 'closest',
-                legend: {
-                    orientation: 'v',
-                    x: 1.02,
-                    y: 1,
-                    xanchor: 'left',
-                },
-                width: 1200,
-                height: 600,
-                paper_bgcolor: '#ffffff',
-                plot_bgcolor: '#f9f9f9',
-                margin: { l: 60, r: 200, t: 60, b: 120 },
-            }}
-            config={{
-                responsive: true,
-                displayModeBar: true,
-                displaylogo: false,
-            }}
+            data={traces as any}
+            layout={layout as any}
+            config={config}
         />
     );
 };

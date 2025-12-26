@@ -1,10 +1,10 @@
 import {useState, useEffect} from "react";
 import {Flex, Input, Modal, Select, message, Button, Steps, Upload, Space, Tabs, Card, List, InputNumber, DatePicker} from "antd";
 import {InboxOutlined, UploadOutlined, DatabaseOutlined, CheckCircleOutlined, DeleteOutlined, PlusOutlined} from '@ant-design/icons';
-import type {UploadProps} from "antd";
+import type {UploadProps, StepsProps} from "antd";
 import * as XLSX from 'xlsx';
 import {useNavigate} from "react-router";
-import {fetchTables, filterTablesByType, type TableInfo} from "../../shared/api/tablesApi";
+import {fetchTables, filterTablesByType, type TableInfo} from "../../shared/api/tablesApi.ts";
 import {fetchFilterOptions} from "@/entities/filter";
 import dayjs, {Dayjs} from 'dayjs';
 
@@ -545,7 +545,7 @@ const UploadingPage = () => {
         },
     ];
 
-    const stepsItems: StepProps[] = [
+    const stepsItems: StepsProps['items'] = [
         {
             title: 'Завоз/Вывоз',
             status: fileStatuses.zvz === 'success' ? 'finish' : 'wait',
