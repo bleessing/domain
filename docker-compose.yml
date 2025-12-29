@@ -13,4 +13,4 @@ services:
       - balance-network
 networks:
   balance-network:
-    driver: bridge
+    external: true
