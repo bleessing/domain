@@ -16,7 +16,10 @@ function DashboardPage() {
     // Получаем названия таблиц из URL
     const zvz_table = searchParams.get('zvz_table') || '';
     const rss_table = searchParams.get('rss_table') || '';
-    const spr_table = searchParams.get('spr_table') || '';
+    const spr_zvz_table = searchParams.get('spr_zvz_table') || '';
+    const spr_rss_table = searchParams.get('spr_rss_table') || '';
+    const spr_ov_table = searchParams.get('spr_ov_table') || '';
+    const ov_table = searchParams.get('ov_table') || '';
     const leftovers_table = searchParams.get('leftovers_table') || '';
 
     const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null);
@@ -26,7 +29,10 @@ function DashboardPage() {
     const [currentFilters, setCurrentFilters] = useState<FilterParams>({
         zvz_table,
         rss_table,
-        spr_table,
+        spr_zvz_table,
+        spr_rss_table,
+        spr_ov_table,
+        ov_table,
         ost_table: leftovers_table,
         sources_mode: 'in',
         targets_mode: 'in',
@@ -51,7 +57,7 @@ function DashboardPage() {
 
     // Загрузка фильтров при монтировании компонента
     useEffect(() => {
-        if (!zvz_table || !rss_table || !spr_table) {
+        if (!zvz_table || !rss_table || !spr_zvz_table || !spr_rss_table || !spr_ov_table) {
             message.error('Отсутствуют параметры таблиц в URL. Пожалуйста, вернитесь на страницу загрузки.');
             return;
         }
@@ -59,14 +65,25 @@ function DashboardPage() {
         const loadFilters = async () => {
             setIsLoadingFilters(true);
             try {
-                const options = await fetchFilterOptions(zvz_table, rss_table, spr_table, leftovers_table);
+                const options = await fetchFilterOptions(
+                    zvz_table,
+                    rss_table,
+                    spr_rss_table,
+                    spr_zvz_table,
+                    spr_ov_table,
+                    ov_table,
+                    leftovers_table
+                );
                 setFilterOptions(options);
 
                 // Инициализируем фильтры с пустыми значениями
                 setCurrentFilters({
                     zvz_table,
                     rss_table,
-                    spr_table,
+                    spr_zvz_table,
+                    spr_rss_table,
+                    spr_ov_table,
+                    ov_table,
                     ost_table: leftovers_table,
                     sources_mode: 'in',
                     targets_mode: 'in',
@@ -91,7 +108,7 @@ function DashboardPage() {
         };
 
         loadFilters();
-    }, [zvz_table, rss_table, spr_table, leftovers_table]);
+    }, [zvz_table, rss_table, spr_zvz_table, spr_rss_table, spr_ov_table, ov_table, leftovers_table]);
 
     // Обработка нажатия кнопки "Обновить диаграмму"
     const handleApplyFilters = async () => {
@@ -109,7 +126,7 @@ function DashboardPage() {
         ]);
     };
 
-    if (!zvz_table || !rss_table || !spr_table) {
+    if (!zvz_table || !rss_table || !spr_zvz_table || !spr_rss_table || !spr_ov_table) {
         return (
             <div style={{ padding: '48px', textAlign: 'center' }}>
                 <h2>Отсутствуют параметры таблиц</h2>

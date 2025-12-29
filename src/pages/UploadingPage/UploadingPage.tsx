@@ -28,6 +28,7 @@ interface FileSelection {
     selectedSheet?: string;
     tableName?: string;
     existingTableName?: string;
+    existingTableNames?: string[]; // Для множественного выбора (Словарь)
 }
 
 interface OstatokItem {
@@ -75,6 +76,7 @@ const UploadingPage = () => {
     // Для выбора существующей таблицы
     const [existingTables, setExistingTables] = useState<TableInfo[]>([]);
     const [selectedExistingTable, setSelectedExistingTable] = useState<string | undefined>(undefined);
+    const [selectedExistingTables, setSelectedExistingTables] = useState<string[]>([]); // Для множественного выбора (Словарь)
     const [isLoadingTables, setIsLoadingTables] = useState<boolean>(false);
     const [isUploading, setIsUploading] = useState<boolean>(false);
 
@@ -130,16 +132,42 @@ const UploadingPage = () => {
 
         const zvzTableName = zvzSelection.type === 'upload' ? zvzSelection.tableName : zvzSelection.existingTableName;
         const rssTableName = rssSelection.type === 'upload' ? rssSelection.tableName : rssSelection.existingTableName;
-        const sprTableName = keyWordsSelection.type === 'upload' ? keyWordsSelection.tableName : keyWordsSelection.existingTableName;
 
-        if (!zvzTableName || !rssTableName || !sprTableName) {
+        // Для словаря автоматически сопоставляем таблицы по названию
+        let sprRssTableName: string | undefined;
+        let sprZvzTableName: string | undefined;
+        let sprOvTableName: string | undefined;
+
+        if (keyWordsSelection.type === 'upload') {
+            sprRssTableName = keyWordsSelection.tableName;
+            sprZvzTableName = keyWordsSelection.tableName;
+            sprOvTableName = keyWordsSelection.tableName;
+        } else if (keyWordsSelection.existingTableNames) {
+            // Автоматически определяем какая таблица для какого параметра
+            keyWordsSelection.existingTableNames.forEach(tableName => {
+                const lowerName = tableName.toLowerCase();
+                if (lowerName.includes('rss')) {
+                    sprRssTableName = tableName;
+                } else if (lowerName.includes('zvz') || lowerName.includes('завоз')) {
+                    sprZvzTableName = tableName;
+                } else if (lowerName.includes('ov') || lowerName.includes('отгруз')) {
+                    sprOvTableName = tableName;
+                }
+            });
+        } else {
+            sprRssTableName = keyWordsSelection.existingTableName;
+            sprZvzTableName = keyWordsSelection.existingTableName;
+            sprOvTableName = keyWordsSelection.existingTableName;
+        }
+
+        if (!zvzTableName || !rssTableName || !sprRssTableName || !sprZvzTableName || !sprOvTableName) {
             message.warning('Не удалось определить названия таблиц');
             return;
         }
 
         setIsLoadingSostoyania(true);
         try {
-            const filterOptions = await fetchFilterOptions(zvzTableName, rssTableName, sprTableName, '');
+            const filterOptions = await fetchFilterOptions(zvzTableName, rssTableName, sprRssTableName, sprZvzTableName, sprOvTableName);
 
             // Преобразуем массив строк в массив объектов с name
             const sostoyaniOptions = filterOptions.states.map(state => ({ name: state }));
@@ -282,6 +310,7 @@ const UploadingPage = () => {
         setSelectedSheet("");
         setTableName("");
         setSelectedExistingTable(undefined);
+        setSelectedExistingTables([]);
     };
 
     // Изменение типа файла
@@ -300,7 +329,12 @@ const UploadingPage = () => {
                 setSelectedSheet(saved.selectedSheet || '');
                 setTableName(saved.tableName || '');
             } else {
-                setSelectedExistingTable(saved.existingTableName);
+                // Для словаря восстанавливаем массив, для остальных - одну таблицу
+                if (newType === 'Словарь' && saved.existingTableNames) {
+                    setSelectedExistingTables(saved.existingTableNames);
+                } else {
+                    setSelectedExistingTable(saved.existingTableName);
+                }
             }
         } else {
             // Если нет сохраненного выбора, устанавливаем вкладку по умолчанию
@@ -323,7 +357,8 @@ const UploadingPage = () => {
                 message.warning('Пожалуйста, укажите название таблицы');
                 return;
             }
-            if (!selectedSheet) {
+            // Для типа "Словарь" не требуем выбор листа
+            if (currentFileType !== 'Словарь' && !selectedSheet) {
                 message.warning('Пожалуйста, выберите лист');
                 return;
             }
@@ -335,7 +370,9 @@ const UploadingPage = () => {
                 formData.append('file', uploadedFile);
                 formData.append('table_type', currentFileType);
                 formData.append('table_name', tableName);
-                formData.append('sheet_name', selectedSheet);
+                // Для типа "Словарь" используем первый лист, для остальных - выбранный
+                const sheetToUpload = currentFileType === 'Словарь' ? (sheetNames[0] || '') : selectedSheet;
+                formData.append('sheet_name', sheetToUpload);
 
                 const response = await fetch(`${API_BASE_URL}/upload/file`, {
                     method: 'POST',
@@ -382,6 +419,7 @@ const UploadingPage = () => {
                     handleFileTypeChange('Остатки');
                 } else if (currentFileType === 'Остатки' && fileStatuses['OV'] === 'idle') {
                     handleFileTypeChange('OV');
+
                 }
             } catch (error: unknown) {
                 message.error(`Ошибка при загрузке файла: ${getErrorMessage(error)}`);
@@ -390,16 +428,25 @@ const UploadingPage = () => {
                 setIsUploading(false);
             }
         } else {
-            if (!selectedExistingTable) {
-                message.warning('Пожалуйста, выберите таблицу');
-                return;
+            // Для словаря проверяем массив, для остальных - одну таблицу
+            if (currentFileType === 'Словарь') {
+                if (!selectedExistingTables || selectedExistingTables.length !== 3) {
+                    message.warning('Пожалуйста, выберите ровно 3 таблицы словаря (в порядке: RSS, Завоз/Вывоз, OV)');
+                    return;
+                }
+            } else {
+                if (!selectedExistingTable) {
+                    message.warning('Пожалуйста, выберите таблицу');
+                    return;
+                }
             }
 
             setSavedSelections(prev => ({
                 ...prev,
                 [currentFileType]: {
                     type: 'existing',
-                    existingTableName: selectedExistingTable,
+                    existingTableName: currentFileType === 'Словарь' ? undefined : selectedExistingTable,
+                    existingTableNames: currentFileType === 'Словарь' ? selectedExistingTables : undefined,
                 }
             }));
 
@@ -435,6 +482,7 @@ const UploadingPage = () => {
         }
 
         const tableNames: Record<string, string> = {};
+        let sprTables: string[] = [];
 
         // Собираем названия таблиц из сохраненных выборов
         for (const fileType of ['Завоз/Вывоз', 'RSS', 'Словарь'] as FileType[]) {
@@ -444,18 +492,55 @@ const UploadingPage = () => {
             if (selection.type === 'upload') {
                 tableNames[fileType] = selection.tableName || '';
             } else if (selection.type === 'existing') {
-                tableNames[fileType] = selection.existingTableName || '';
+                // Для словаря сохраняем массив таблиц
+                if (fileType === 'Словарь' && selection.existingTableNames) {
+                    sprTables = selection.existingTableNames;
+                } else {
+                    tableNames[fileType] = selection.existingTableName || '';
+                }
             }
         }
 
         message.success('Переход на главную страницу...');
 
-        // Формируем URL с параметрами таблиц
-        const params = new URLSearchParams({
-            zvz_table: tableNames['Завоз/Вывоз'] || '',
-            rss_table: tableNames['RSS'] || '',
-            spr_table: tableNames['Словарь'] || '',
+        // Формируем URL с параметрами таблиц вручную (без кодирования запятых)
+        const queryParams: string[] = [];
+
+        queryParams.push(`zvz_table=${tableNames['Завоз/Вывоз'] || ''}`);
+        queryParams.push(`rss_table=${tableNames['RSS'] || ''}`);
+
+        // Автоматически сопоставляем таблицы словарей по названию
+        let sprRssTable = '';
+        let sprZvzTable = '';
+        let sprOvTable = '';
+
+        sprTables.forEach(tableName => {
+            const lowerName = tableName.toLowerCase();
+            if (lowerName.includes('rss')) {
+                sprRssTable = tableName;
+            } else if (lowerName.includes('zvz') || lowerName.includes('завоз')) {
+                sprZvzTable = tableName;
+            } else if (lowerName.includes('ov') || lowerName.includes('отгруз')) {
+                sprOvTable = tableName;
+            }
         });
+
+        queryParams.push(`spr_rss_table=${sprRssTable}`);
+        queryParams.push(`spr_zvz_table=${sprZvzTable}`);
+        queryParams.push(`spr_ov_table=${sprOvTable}`);
+
+        // Добавляем таблицу отгруз/выгруз, если она была настроена
+        if (fileStatuses['OV'] === 'success') {
+            const otgruzSelection = savedSelections['OV'];
+            if (otgruzSelection) {
+                const otgruzTableName = otgruzSelection.type === 'upload'
+                    ? otgruzSelection.tableName
+                    : otgruzSelection.existingTableName;
+                if (otgruzTableName) {
+                    queryParams.push(`ov_table=${otgruzTableName}`);
+                }
+            }
+        }
 
         // Добавляем таблицу остатков, если она была настроена
         // Проверяем два варианта: созданная новая таблица или выбранная существующая
@@ -469,23 +554,11 @@ const UploadingPage = () => {
         }
 
         if (leftoversTableName) {
-            params.append('leftovers_table', leftoversTableName);
+            queryParams.push(`leftovers_table=${leftoversTableName}`);
         }
 
-        // Добавляем таблицу отгруз/выгруз, если она была настроена
-        if (fileStatuses['OV'] === 'success') {
-            const otgruzSelection = savedSelections['OV'];
-            if (otgruzSelection) {
-                const otgruzTableName = otgruzSelection.type === 'upload'
-                    ? otgruzSelection.tableName
-                    : otgruzSelection.existingTableName;
-                if (otgruzTableName) {
-                    params.append('otgruz_vygruz_table', otgruzTableName);
-                }
-            }
-        }
-
-        setTimeout(() => navigate(`/main?${params.toString()}`), 1000);
+        const queryString = queryParams.join('&');
+        setTimeout(() => navigate(`/main?${queryString}`), 1000);
     };
 
     // Очистка всего
@@ -647,21 +720,23 @@ const UploadingPage = () => {
                                             />
                                         </div>
 
-                                        <div>
-                                            <label style={{display: 'block', marginBottom: '8px'}}>
-                                                Выберите лист (страницу)
-                                            </label>
-                                            <Select
-                                                placeholder="Выберите нужную страницу"
-                                                value={selectedSheet}
-                                                onChange={setSelectedSheet}
-                                                options={sheetNames.map(name => ({
-                                                    value: name,
-                                                    label: name,
-                                                }))}
-                                                style={{width: '100%'}}
-                                            />
-                                        </div>
+                                        {currentFileType !== 'Словарь' && (
+                                            <div>
+                                                <label style={{display: 'block', marginBottom: '8px'}}>
+                                                    Выберите лист (страницу)
+                                                </label>
+                                                <Select
+                                                    placeholder="Выберите нужную страницу"
+                                                    value={selectedSheet}
+                                                    onChange={setSelectedSheet}
+                                                    options={sheetNames.map(name => ({
+                                                        value: name,
+                                                        label: name,
+                                                    }))}
+                                                    style={{width: '100%'}}
+                                                />
+                                            </div>
+                                        )}
                                     </>
                                 )}
 
@@ -685,9 +760,16 @@ const UploadingPage = () => {
                                         Доступные таблицы
                                     </label>
                                     <Select
-                                        placeholder={isLoadingTables ? 'Загрузка...' : 'Выберите таблицу'}
-                                        value={selectedExistingTable}
-                                        onChange={setSelectedExistingTable}
+                                        mode={currentFileType === 'Словарь' ? 'multiple' : undefined}
+                                        placeholder={isLoadingTables ? 'Загрузка...' : currentFileType === 'Словарь' ? 'Выберите таблицы' : 'Выберите таблицу'}
+                                        value={currentFileType === 'Словарь' ? selectedExistingTables : selectedExistingTable}
+                                        onChange={(value) => {
+                                            if (currentFileType === 'Словарь') {
+                                                setSelectedExistingTables(value as string[]);
+                                            } else {
+                                                setSelectedExistingTable(value as string);
+                                            }
+                                        }}
                                         loading={isLoadingTables}
                                         disabled={isLoadingTables}
                                         options={filteredTables.map((table) => ({

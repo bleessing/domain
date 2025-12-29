@@ -14,7 +14,10 @@ export interface FilterOptions {
 export interface FilterParams {
     zvz_table: string;
     rss_table: string;
-    spr_table: string;
+    spr_zvz_table: string;
+    spr_rss_table: string;
+    spr_ov_table: string;
+    ov_table?: string;
     ost_table: string;
     sources_mode?: string;
     targets_mode?: string;
