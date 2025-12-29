@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '@/shared/lib/constants';
+
 
 export type FileType = 'Завоз/Вывоз' | 'RSS' | 'Словарь' | 'Остатки' | 'OV';
 
@@ -19,7 +19,7 @@ export interface TablesApiResponse {
 
 }
 
-const TABLES_API_URL = `${API_BASE_URL}/tables`;
+const TABLES_API_URL = `${import.meta.env.VITE_API_BASE_URL}/tables`;
 
 // Маппинг типов таблиц из API (с подчеркиваниями) в локальные типы (с слэшами)
 const TABLE_TYPE_MAP: Record<string, FileType> = {

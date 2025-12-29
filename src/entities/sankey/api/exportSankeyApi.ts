@@ -1,4 +1,4 @@
-import { API_BASE_URL, API_HEADERS } from '@/shared/lib/constants';
+import { API_HEADERS } from '@/shared/lib/constants';
 import type { FilterParams } from '@/entities/filter';
 
 export async function exportSankeyData(filters: FilterParams): Promise<Blob> {
@@ -43,7 +43,7 @@ export async function exportSankeyData(filters: FilterParams): Promise<Blob> {
     if (filters.date_to) queryParams.push(`date_to=${filters.date_to}`);
 
     const queryString = queryParams.join('&');
-    const url = `${API_BASE_URL}/export/sankey?${queryString}`;
+    const url = `${import.meta.env.VITE_API_BASE_URL}/export/sankey?${queryString}`;
 
     const response = await fetch(url, {
         method: 'GET',

@@ -1,5 +1,5 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import { API_BASE_URL, API_HEADERS } from '../lib/constants';
+import {  API_HEADERS } from '../lib/constants';
 
 /**
  * Базовый API slice для всех endpoint'ов
@@ -8,7 +8,7 @@ import { API_BASE_URL, API_HEADERS } from '../lib/constants';
 export const baseApi = createApi({
     reducerPath: 'api',
     baseQuery: fetchBaseQuery({
-        baseUrl: API_BASE_URL,
+        baseUrl: import.meta.env.VITE_API_BASE_URL,
         prepareHeaders: (headers) => {
             // Добавляем общие заголовки
             Object.entries(API_HEADERS).forEach(([key, value]) => {
