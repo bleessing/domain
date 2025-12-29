@@ -19,7 +19,7 @@ export async function fetchBalanceData(filters: FilterParams): Promise<BalanceRe
     if (filters.states && filters.states.length > 0) {
         filters.states.forEach(s => params.append('states', s));
     }
-    params.append('types', 'СПТ');
+
 
     // Даты
     if (filters.date_from) params.append('date_from', filters.date_from);
