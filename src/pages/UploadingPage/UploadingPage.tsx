@@ -51,6 +51,7 @@ const UploadingPage = () => {
         'Словарь': 'idle',
         'Остатки': 'idle',
         'OV': 'idle',
+        'DV': 'idle',
     });
 
     // Сохраненные выборы файлов
@@ -60,6 +61,7 @@ const UploadingPage = () => {
         'Словарь': null,
         'Остатки': null,
         'OV': null,
+        'DV': null,
     });
 
     // Текущая форма
@@ -92,6 +94,7 @@ const UploadingPage = () => {
 
     const fileTypeOptions = [
         {value: 'Завоз/Вывоз', label: 'Завоз/Вывоз'},
+        {value: 'DV', label: 'ДВ'},
         {value: 'RSS', label: 'RSS'},
         {value: 'Словарь', label: 'Словарь'},
         {value: 'Остатки', label: 'Остатки'},
@@ -419,7 +422,8 @@ const UploadingPage = () => {
                     handleFileTypeChange('Остатки');
                 } else if (currentFileType === 'Остатки' && fileStatuses['OV'] === 'idle') {
                     handleFileTypeChange('OV');
-
+                } else if (currentFileType === 'OV' && fileStatuses['DV'] === 'idle') {
+                    handleFileTypeChange('DV');
                 }
             } catch (error: unknown) {
                 message.error(`Ошибка при загрузке файла: ${getErrorMessage(error)}`);
@@ -466,6 +470,8 @@ const UploadingPage = () => {
                 handleFileTypeChange('Остатки');
             } else if (currentFileType === 'Остатки' && fileStatuses['OV'] === 'idle') {
                 handleFileTypeChange('OV');
+            } else if (currentFileType === 'OV' && fileStatuses['DV'] === 'idle') {
+                handleFileTypeChange('DV');
             }
         }
     };
@@ -542,6 +548,19 @@ const UploadingPage = () => {
             }
         }
 
+        // Добавляем таблицу ДВ, если она была настроена
+        if (fileStatuses['DV'] === 'success') {
+            const dvSelection = savedSelections['DV'];
+            if (dvSelection) {
+                const dvTableName = dvSelection.type === 'upload'
+                    ? dvSelection.tableName
+                    : dvSelection.existingTableName;
+                if (dvTableName) {
+                    queryParams.push(`dv_table=${dvTableName}`);
+                }
+            }
+        }
+
         // Добавляем таблицу остатков, если она была настроена
         // Проверяем два варианта: созданная новая таблица или выбранная существующая
         let leftoversTableName = '';
@@ -563,8 +582,8 @@ const UploadingPage = () => {
 
     // Очистка всего
     const resetAll = () => {
-        setFileStatuses({'Завоз/Вывоз': 'idle', 'RSS': 'idle', 'Словарь': 'idle', 'Остатки': 'idle', 'OV': 'idle'});
-        setSavedSelections({'Завоз/Вывоз': null, 'RSS': null, 'Словарь': null, 'Остатки': null, 'OV': null});
+        setFileStatuses({'Завоз/Вывоз': 'idle', 'RSS': 'idle', 'Словарь': 'idle', 'Остатки': 'idle', 'OV': 'idle', 'DV': 'idle'});
+        setSavedSelections({'Завоз/Вывоз': null, 'RSS': null, 'Словарь': null, 'Остатки': null, 'OV': null, 'DV': null});
         resetCurrentForm();
         setCurrentFileType('Завоз/Вывоз');
         setActiveTab('upload');
@@ -627,6 +646,11 @@ const UploadingPage = () => {
             icon: fileStatuses['Завоз/Вывоз'] === 'success' ? <CheckCircleOutlined/> : undefined,
         },
         {
+            title: 'ДВ (опционально)',
+            status: fileStatuses['DV'] === 'success' ? 'finish' : 'wait',
+            icon: fileStatuses['DV'] === 'success' ? <CheckCircleOutlined/> : undefined,
+        },
+        {
             title: 'RSS',
             status: fileStatuses['RSS'] === 'success' ? 'finish' : 'wait',
             icon: fileStatuses['RSS'] === 'success' ? <CheckCircleOutlined/> : undefined,
@@ -645,7 +669,8 @@ const UploadingPage = () => {
             title: 'Отгруз/Выгруз (опционально)',
             status: fileStatuses['OV'] === 'success' ? 'finish' : 'wait',
             icon: fileStatuses['OV'] === 'success' ? <CheckCircleOutlined/> : undefined,
-        }
+        },
+
     ];
 
     const allConfigured = fileStatuses['Завоз/Вывоз'] === 'success' &&

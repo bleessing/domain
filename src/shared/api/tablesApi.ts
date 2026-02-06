@@ -1,6 +1,6 @@
 
 
-export type FileType = 'Завоз/Вывоз' | 'RSS' | 'Словарь' | 'Остатки' | 'OV';
+export type FileType = 'Завоз/Вывоз' | 'RSS' | 'Словарь' | 'Остатки' | 'OV' | 'DV';
 
 export interface TableInfo {
   table_name: string;
@@ -29,6 +29,8 @@ const TABLE_TYPE_MAP: Record<string, FileType> = {
   'Остатки': 'Остатки',
   'Отгруз_Выгруз': 'OV',
   'OV': 'OV', // Бэкенд может возвращать как OV, так и Отгруз_Выгруз
+  'ДВ': 'DV',
+  'DV': 'DV',
 };
 
 /**
