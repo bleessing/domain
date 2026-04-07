@@ -20,7 +20,7 @@ export const useExportData = () => {
     };
 
     const handleExportSankey = async (filters: FilterParams) => {
-        setIsExporting('sankey');
+        setIsExporting('Санкей');
         try {
             const blob = await exportSankeyData(filters);
             const timestamp = new Date().toISOString().split('T')[0];
@@ -35,7 +35,7 @@ export const useExportData = () => {
     };
 
     const handleExportBalance = async (filters: FilterParams) => {
-        setIsExporting('balance');
+        setIsExporting('Баланс');
         try {
             const blob = await exportBalanceData(filters);
             const timestamp = new Date().toISOString().split('T')[0];
@@ -50,7 +50,7 @@ export const useExportData = () => {
     };
 
     const handleExportDynamics = async (filters: FilterParams) => {
-        setIsExporting('dynamics');
+        setIsExporting('Динамика');
         try {
             const blob = await exportDynamicsData(filters);
             const timestamp = new Date().toISOString().split('T')[0];
@@ -65,7 +65,7 @@ export const useExportData = () => {
     };
 
     const handleExportBalanceReport = async (filters: FilterParams) => {
-        setIsExporting('Баланс отчет(ЦТР)');
+        setIsExporting('Баланс отчет');
         try {
             const blob = await exportBalanceReportData(filters);
             const timestamp = new Date().toISOString().split('T')[0];

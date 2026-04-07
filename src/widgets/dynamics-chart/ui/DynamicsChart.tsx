@@ -1,51 +1,46 @@
+import { memo, useMemo } from 'react';
 import Plot from 'react-plotly.js';
-import type { Config } from 'plotly.js';
-import type {DynamicsChartProps, PlotLayout, DynamicsTrace} from '../lib/index.ts'
-
+import type { Config, Data, Layout } from 'plotly.js';
+import type { DynamicsChartProps, PlotLayout, DynamicsTrace } from '../lib/index.ts';
 
 type PlotConfig = Partial<Config>;
+
+const DYNAMICS_CONFIG: PlotConfig = {
+    responsive: true,
+    displayModeBar: true,
+    displaylogo: false,
+    modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+};
+
+function getColorForSeries(name: string): string {
+    if (name.includes('Приход')) return '#2ca02c';
+    if (name.includes('Расход')) return '#d62728';
+    if (name.includes('Баланс')) return '#1f77b4';
+    return '#8884d8';
+}
 
 const DynamicsChart: React.FC<DynamicsChartProps> = ({
     data,
     title = 'Динамика по датам',
-    chartType = 'bar'
+    chartType = 'bar',
 }) => {
-    if (!data || !data.dates || data.dates.length === 0) {
-        return (
-            <div style={{ padding: '48px', textAlign: 'center', border: '1px dashed #ccc', borderRadius: '8px' }}>
-                <p>Нет данных для отображения гистограммы</p>
-            </div>
-        );
-    }
+    const traces = useMemo<DynamicsTrace[]>(() => {
+        if (!data?.dates?.length) return [];
+        return data.series.map(series => {
+            const color = getColorForSeries(series.name);
+            return {
+                x: data.dates,
+                y: series.data,
+                name: series.name,
+                type: chartType === 'bar' ? 'bar' : 'scatter',
+                mode: chartType === 'line' ? 'lines' : undefined,
+                marker: { color },
+                line: chartType === 'line' ? { color, width: 2 } : undefined,
+            };
+        });
+    }, [data, chartType]);
 
-    // Функция для определения цвета на основе типа метрики
-    const getColorForSeries = (name: string): string => {
-        if (name.includes('Приход')) return '#2ca02c';  // зеленый
-        if (name.includes('Расход')) return '#d62728';  // красный
-        if (name.includes('Баланс')) return '#1f77b4';  // синий
-        return '#8884d8'; // дефолтный цвет
-    };
-
-    // Создаем трейсы для Plotly
-    const traces: DynamicsTrace[] = data.series.map(series => {
-        const color = getColorForSeries(series.name);
-        return {
-            x: data.dates,
-            y: series.data,
-            name: series.name,
-            type: chartType === 'bar' ? 'bar' : 'scatter',
-            mode: chartType === 'line' ? 'lines' : undefined,
-            marker: {
-                color: color,
-            },
-            line: chartType === 'line' ? {
-                color: color,
-                width: 2
-            } : undefined,
-        };
-    });
-
-    const layout: PlotLayout = {
+    const layout = useMemo<PlotLayout>(() => ({
         title: { text: title },
         xaxis: {
             title: 'Дата',
@@ -72,22 +67,23 @@ const DynamicsChart: React.FC<DynamicsChartProps> = ({
         paper_bgcolor: '#ffffff',
         plot_bgcolor: '#f9f9f9',
         margin: { l: 60, r: 40, t: 140, b: 80 },
-    };
+    }), [title, chartType]);
 
-    const config: PlotConfig = {
-        responsive: true,
-        displayModeBar: true,
-        displaylogo: false,
-        modeBarButtonsToRemove: ['lasso2d', 'select2d'],
-    };
+    if (!data || !data.dates || data.dates.length === 0) {
+        return (
+            <div style={{ padding: '48px', textAlign: 'center', border: '1px dashed #ccc', borderRadius: '8px' }}>
+                <p>Нет данных для отображения гистограммы</p>
+            </div>
+        );
+    }
 
     return (
         <Plot
-            data={traces as any}
-            layout={layout as any}
-            config={config}
+            data={traces as Data[]}
+            layout={layout as Partial<Layout>}
+            config={DYNAMICS_CONFIG}
         />
     );
 };
 
-export default DynamicsChart;
+export default memo(DynamicsChart);

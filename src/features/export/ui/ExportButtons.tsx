@@ -1,21 +1,28 @@
 import React from 'react';
-import { Button, Space } from 'antd';
-import { DownloadOutlined } from '@ant-design/icons';
-import { useExportData } from '../model/useExportData';
-import type { FilterParams } from '@/entities/filter';
+import {Button, Space} from 'antd';
+import {DownloadOutlined} from '@ant-design/icons';
+
+import type {FilterParams} from '@/entities/filter';
+import {useExportData} from "@/features/export";
 
 interface ExportButtonsProps {
     filters: FilterParams;
 }
 
-const ExportButtons: React.FC<ExportButtonsProps> = ({ filters }) => {
-    const { isExporting, handleExportSankey, handleExportBalance, handleExportDynamics, handleExportBalanceReport } = useExportData();
+const ExportButtons: React.FC<ExportButtonsProps> = ({filters}) => {
+    const {
+        isExporting,
+        handleExportSankey,
+        handleExportBalance,
+        handleExportDynamics,
+        handleExportBalanceReport
+    } = useExportData();
 
     return (
-        <Space  size="small" wrap>
+        <Space size="small" wrap>
             <Button
                 type="default"
-                icon={<DownloadOutlined />}
+                icon={<DownloadOutlined/>}
                 loading={isExporting === 'Санкей'}
                 onClick={() => handleExportSankey(filters)}
                 size="small"
@@ -24,7 +31,7 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({ filters }) => {
             </Button>
             <Button
                 type="default"
-                icon={<DownloadOutlined />}
+                icon={<DownloadOutlined/>}
                 loading={isExporting === 'Баланс'}
                 onClick={() => handleExportBalance(filters)}
                 size="small"
@@ -33,7 +40,7 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({ filters }) => {
             </Button>
             <Button
                 type="default"
-                icon={<DownloadOutlined />}
+                icon={<DownloadOutlined/>}
                 loading={isExporting === 'Динамика'}
                 onClick={() => handleExportDynamics(filters)}
                 size="small"
@@ -42,7 +49,7 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({ filters }) => {
             </Button>
             <Button
                 type="default"
-                icon={<DownloadOutlined />}
+                icon={<DownloadOutlined/>}
                 loading={isExporting === 'Баланс отчет'}
                 onClick={() => handleExportBalanceReport(filters)}
                 size="small"

@@ -1,48 +1,41 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { message } from 'antd';
-import { fetchDynamicsForState, type DynamicsResponse } from '@/entities/dynamics';
+import { dynamicsApi } from '@/entities/dynamics/api/dynamicsApiSlice';
+import type { DynamicsResponse } from '@/entities/dynamics';
 import type { FilterParams } from '@/entities/filter';
+import type { AppDispatch } from '@/app/store';
 
 export const useDynamicsData = () => {
+    const dispatch = useDispatch<AppDispatch>();
     const [data, setData] = useState<DynamicsResponse | null>(null);
-    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [isLoading, setIsLoading] = useState(false);
 
-    const loadData = async (filters: FilterParams) => {
+    const loadData = useCallback(async (filters: FilterParams) => {
+        if (!filters.states?.length) {
+            setData(null);
+            return;
+        }
+
         setIsLoading(true);
         try {
-            // Если нет выбранных состояний, не загружаем данные
-            if (!filters.states || filters.states.length === 0) {
-                setData(null);
-                return;
-            }
-
             // Для динамики ВСЕГДА используем is_leftovers: false
-            const dynamicsFilters = {
-                ...filters,
-                is_leftovers: false,
-            };
+            const dynamicsFilters = { ...filters, is_leftovers: false };
 
-            // Делаем параллельные запросы для каждого состояния
+            // Делаем параллельные запросы для каждого состояния через RTK Query (с кэшированием)
             const promises = filters.states.map(state =>
-                fetchDynamicsForState(dynamicsFilters, state)
+                dispatch(dynamicsApi.endpoints.getDynamicsForState.initiate({ filters: dynamicsFilters, state })).unwrap()
             );
 
             const responses = await Promise.all(promises);
 
             // Объединяем данные от разных состояний
-            const mergedData: DynamicsResponse = {
-                dates: responses[0]?.dates || [],
-                series: []
-            };
+            const mergedData: DynamicsResponse = { dates: responses[0]?.dates || [], series: [] };
 
-            // Для каждого состояния добавляем его серии с префиксом
             responses.forEach((response, index) => {
                 const stateName = filters.states![index];
                 response.series.forEach(serie => {
-                    mergedData.series.push({
-                        name: `${stateName} - ${serie.name}`,
-                        data: serie.data
-                    });
+                    mergedData.series.push({ name: `${stateName} - ${serie.name}`, data: serie.data });
                 });
             });
 
@@ -56,7 +49,7 @@ export const useDynamicsData = () => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [dispatch]);
 
     return { data, isLoading, loadData };
 };

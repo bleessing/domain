@@ -1,6 +1,7 @@
+import { memo, useMemo } from 'react';
 import Plot from 'react-plotly.js';
 import type { PlotlySankeyData } from '@/entities/sankey';
-import type { Config } from 'plotly.js';
+import type { Config, Data, Layout } from 'plotly.js';
 
 interface SankeyDiagramProps {
     data: PlotlySankeyData;
@@ -74,113 +75,101 @@ const COLOR_SCHEMES = {
     ],
 };
 
+const SANKEY_CONFIG: SankeyConfig = {
+    responsive: true,
+    displayModeBar: true,
+    displaylogo: false,
+};
+
 const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
-                                                         data,
-                                                         title = 'Sankey Diagram',
-                                                         colorScheme = 'default'
-                                                     }) => {
-    // Проверяем, что данные существуют и не пустые
-    if (!data || !data.nodes || !data.links || data.nodes.length === 0 || data.links.length === 0) {
-        return (
-            <div style={{padding: '48px', textAlign: 'center', border: '1px dashed #ccc', borderRadius: '8px'}}>
-                <p>Нет данных для отображения диаграммы</p>
-                <p style={{fontSize: '12px', color: '#999'}}>
-                    Nodes: {data?.nodes?.length || 0}, Links: {data?.links?.length || 0}
-                </p>
-            </div>
+    data,
+    title = 'Sankey Diagram',
+    colorScheme = 'default',
+}) => {
+    const sankeyTrace = useMemo<SankeyTrace | null>(() => {
+        if (!data?.nodes?.length || !data?.links?.length) return null;
+
+        const colors = COLOR_SCHEMES[colorScheme];
+        const nodeColors = data.nodes.map((node, index) =>
+            node.color || colors[index % colors.length]
         );
-    }
+        const linkColors = data.links.map((link) => {
+            if (link.color) return link.color;
+            const sourceColor = nodeColors[link.source];
+            return sourceColor.startsWith('#')
+                ? `${sourceColor}33`
+                : sourceColor.replace(')', ', 0.1)').replace('rgb', 'rgba');
+        });
 
-    const colors = COLOR_SCHEMES[colorScheme];
+        const incomingLinks = new Array(data.nodes.length).fill(0);
+        const outgoingLinks = new Array(data.nodes.length).fill(0);
+        data.links.forEach((link) => {
+            outgoingLinks[link.source]++;
+            incomingLinks[link.target]++;
+        });
 
-    // Автоматически назначаем цвета узлам, если они не указаны
-    const nodeColors = data.nodes.map((node, index) =>
-        node.color || colors[index % colors.length]
-    );
-
-    // Генерируем цвета для связей с прозрачностью
-    const linkColors = data.links.map((link) => {
-        if (link.color) return link.color;
-
-        const sourceColor = nodeColors[link.source];
-        // Добавляем прозрачность 40%
-        return sourceColor.startsWith('#')
-            ? `${sourceColor}33`
-            : sourceColor.replace(')', ', 0.1)').replace('rgb', 'rgba');
-    });
-
-    // Подсчитываем количество входящих и исходящих связей для каждого узла
-    const incomingLinks = new Array(data.nodes.length).fill(0);
-    const outgoingLinks = new Array(data.nodes.length).fill(0);
-
-    data.links.forEach((link) => {
-        outgoingLinks[link.source]++;
-        incomingLinks[link.target]++;
-    });
-
-    const sankeyTrace: SankeyTrace = {
-        type: 'sankey',
-        orientation: 'h',
-        arrangement: 'freeform',
-        node: {
-            pad: 10,
-            thickness: 20,
-            line: {
-                color: '#56a7f8',
-                width: 1.5,
+        return {
+            type: 'sankey',
+            orientation: 'h',
+            arrangement: 'freeform',
+            node: {
+                pad: 10,
+                thickness: 20,
+                line: { color: '#56a7f8', width: 1.5 },
+                label: data.nodes.map((node) => node.label),
+                color: nodeColors,
+                customdata: data.nodes.map((_, index) => [
+                    incomingLinks[index],
+                    outgoingLinks[index],
+                ]),
+                hovertemplate:
+                    '<b>%{label}</b><br>' +
+                    'Общий поток: %{value:.2f} шт<br>' +
+                    'Входящих связей: %{customdata[0]}<br>' +
+                    'Исходящих связей: %{customdata[1]}' +
+                    '<extra></extra>',
             },
-            label: data.nodes.map((node) => node.label),
-            color: nodeColors,
-            // Используем массив массивов вместо массива объектов
-            customdata: data.nodes.map((_, index) => [
-                incomingLinks[index],
-                outgoingLinks[index]
-            ]),
-            hovertemplate:
-                '<b>%{label}</b><br>' +
-                'Общий поток: %{value:.2f} шт<br>' +
-                'Входящих связей: %{customdata[0]}<br>' +
-                'Исходящих связей: %{customdata[1]}' +
-                '<extra></extra>',
-        },
-        link: {
-            source: data.links.map((link) => link.source),
-            value: data.links.map((link) => link.value),
-            target: data.links.map((link) => link.target),
-            color: linkColors,
-            hovertemplate: '%{value:.2f} шт<extra></extra>',
-        },
-        iterations: 50,
-        valueformat: '.2f',
-        valuesuffix: ' шт',
-    };
+            link: {
+                source: data.links.map((link) => link.source),
+                value: data.links.map((link) => link.value),
+                target: data.links.map((link) => link.target),
+                color: linkColors,
+                hovertemplate: '%{value:.2f} шт<extra></extra>',
+            },
+            iterations: 50,
+            valueformat: '.2f',
+            valuesuffix: ' шт',
+        };
+    }, [data, colorScheme]);
 
-    const layout: SankeyLayout = {
-        title: {
-            text: title,
-            font: { size: 18 }
-        },
+    const layout = useMemo<SankeyLayout>(() => ({
+        title: { text: title, font: { size: 18 } },
         font: { size: 12 },
         width: 1050,
         height: 900,
         paper_bgcolor: '#ffffff',
         plot_bgcolor: '#f2f2f2',
         margin: { l: 20, r: 20, t: 50, b: 20 },
-    };
+    }), [title]);
 
-    const config: SankeyConfig = {
-        responsive: true,
-        displayModeBar: true,
-        displaylogo: false,
-    };
+    if (!sankeyTrace) {
+        return (
+            <div style={{ padding: '48px', textAlign: 'center', border: '1px dashed #ccc', borderRadius: '8px' }}>
+                <p>Нет данных для отображения диаграммы</p>
+                <p style={{ fontSize: '12px', color: '#999' }}>
+                    Nodes: {data?.nodes?.length || 0}, Links: {data?.links?.length || 0}
+                </p>
+            </div>
+        );
+    }
 
     return (
         <Plot
-            data={[sankeyTrace] as any}
-            layout={layout as any}
-            config={config}
+            data={[sankeyTrace] as Data[]}
+            layout={layout as Partial<Layout>}
+            config={SANKEY_CONFIG}
         />
     );
 };
 
-export default SankeyDiagram;
+export default memo(SankeyDiagram);

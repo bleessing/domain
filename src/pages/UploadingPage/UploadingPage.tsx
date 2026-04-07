@@ -1,948 +1,243 @@
-import {useState, useEffect} from "react";
-import {Flex, Input, Modal, Select, message, Button, Steps, Upload, Space, Tabs, Card, List, InputNumber, DatePicker} from "antd";
-import {InboxOutlined, UploadOutlined, DatabaseOutlined, CheckCircleOutlined, DeleteOutlined, PlusOutlined} from '@ant-design/icons';
-import type {UploadProps, StepsProps} from "antd";
-import * as XLSX from 'xlsx';
-import {useNavigate} from "react-router";
-import {fetchTables, filterTablesByType, type TableInfo, type FileType} from "../../shared/api/tablesApi.ts";
-import {fetchFilterOptions} from "@/entities/filter";
-import {API_BASE_URL} from "@/shared/lib/constants";
-import dayjs, {Dayjs} from 'dayjs';
+import {useState, useEffect} from 'react';
+import {Steps, Button, Flex, Card, message} from 'antd';
+import {CheckCircleOutlined, ClearOutlined, LeftOutlined, RightOutlined} from '@ant-design/icons';
+import {useNavigate} from 'react-router';
+import {fetchTables, type TableInfo, type FileType} from '@/shared/api/tablesApi';
+import type {UploadStatus, FileSelection} from './types';
+import {FILE_STEP_CONFIGS, buildQueryParams} from './types';
+import FileStepContent from './components/FileStepContent';
+import OstatkiStepContent from './components/OstatkiStepContent';
 
-// Вспомогательная функция для получения сообщения об ошибке
-function getErrorMessage(error: unknown): string {
-    if (error instanceof Error) return error.message;
-    return String(error);
-}
+const INITIAL_STATUSES: Record<FileType, UploadStatus> = {
+    'ZVZ': 'idle',
+    'RSS': 'idle',
+    'Словарь': 'idle', // не используется в UI, но нужен для типа Record<FileType>
+    'Остатки': 'idle',
+    'OG': 'idle',
+    'VG': 'idle',
+    'DV': 'idle',
+};
 
-
-
-
-type UploadStatus = 'idle' | 'success';
-
-interface FileSelection {
-    type: 'upload' | 'existing';
-    file?: File;
-    workbook?: XLSX.WorkBook;
-    sheetNames?: string[];
-    selectedSheet?: string;
-    tableName?: string;
-    existingTableName?: string;
-    existingTableNames?: string[]; // Для множественного выбора (Словарь)
-}
-
-interface OstatokItem {
-    id: string;
-    sostoyanie: string;
-    value: number;
-}
-
-interface Sostoyanie {
-    name: string;
-}
+const INITIAL_SELECTIONS: Record<FileType, FileSelection | null> = {
+    'ZVZ': null,
+    'RSS': null,
+    'Словарь': null,
+    'Остатки': null,
+    'OG': null,
+    'VG': null,
+    'DV': null,
+};
 
 const UploadingPage = () => {
     const navigate = useNavigate();
-
-    // Статус для каждого типа файла
-    const [fileStatuses, setFileStatuses] = useState<Record<FileType, UploadStatus>>({
-        'Завоз/Вывоз': 'idle',
-        'RSS': 'idle',
-        'Словарь': 'idle',
-        'Остатки': 'idle',
-        'OV': 'idle',
-        'DV': 'idle',
-    });
-
-    // Сохраненные выборы файлов
-    const [savedSelections, setSavedSelections] = useState<Record<FileType, FileSelection | null>>({
-        'Завоз/Вывоз': null,
-        'RSS': null,
-        'Словарь': null,
-        'Остатки': null,
-        'OV': null,
-        'DV': null,
-    });
-
-    // Текущая форма
-    const [currentFileType, setCurrentFileType] = useState<FileType>('Завоз/Вывоз');
-    const [activeTab, setActiveTab] = useState<'upload' | 'existing' | 'ostatki'>('upload');
-
-    // Для загрузки нового файла
-    const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-    const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
-    const [sheetNames, setSheetNames] = useState<string[]>([]);
-    const [selectedSheet, setSelectedSheet] = useState<string>("");
-    const [tableName, setTableName] = useState<string>("");
-
-    // Для выбора существующей таблицы
+    const [currentStep, setCurrentStep] = useState(0);
+    const [fileStatuses, setFileStatuses] = useState<Record<FileType, UploadStatus>>({...INITIAL_STATUSES});
+    const [savedSelections, setSavedSelections] = useState<Record<FileType, FileSelection | null>>({...INITIAL_SELECTIONS});
     const [existingTables, setExistingTables] = useState<TableInfo[]>([]);
-    const [selectedExistingTable, setSelectedExistingTable] = useState<string | undefined>(undefined);
-    const [selectedExistingTables, setSelectedExistingTables] = useState<string[]>([]); // Для множественного выбора (Словарь)
-    const [isLoadingTables, setIsLoadingTables] = useState<boolean>(false);
-    const [isUploading, setIsUploading] = useState<boolean>(false);
+    const [isLoadingTables, setIsLoadingTables] = useState(true);
 
-    // Для работы с остатками
-    const [sostoyania, setSostoyania] = useState<Sostoyanie[]>([]);
-    const [selectedSostoyanie, setSelectedSostoyanie] = useState<string | undefined>(undefined);
-    const [ostatkiValue, setOstatkiValue] = useState<number | null>(null);
-    const [ostatkiList, setOstatkiList] = useState<OstatokItem[]>([]);
-    const [ostatkiTableName, setOstatkiTableName] = useState<string>("");
-    const [ostatkiMonthYear, setOstatkiMonthYear] = useState<Dayjs | null>(dayjs());
-    const [isLoadingSostoyania, setIsLoadingSostoyania] = useState<boolean>(false);
-    const [ostatkiStatus, setOstatkiStatus] = useState<UploadStatus>('idle');
+    // Separate tracking for manual ostatki entryd
+    const [ostatkiManualTableName, setOstatkiManualTableName] = useState('');
+    const [ostatkiManualStatus, setOstatkiManualStatus] = useState<UploadStatus>('idle');
 
-    const fileTypeOptions = [
-        {value: 'Завоз/Вывоз', label: 'Завоз/Вывоз'},
-        {value: 'DV', label: 'ДВ'},
-        {value: 'RSS', label: 'RSS'},
-        {value: 'Словарь', label: 'Словарь'},
-        {value: 'Остатки', label: 'Остатки'},
-        {value: 'OV', label: 'Отгруз/Выгруз'},
-    ];
-
-    // Загрузка существующих таблиц с сервера
-    const loadExistingTables = async () => {
-        setIsLoadingTables(true);
-        try {
-            const tables = await fetchTables();
-            setExistingTables(tables);
-        } catch (error: unknown) {
-            message.error('Не удалось загрузить список таблиц');
-            console.error(error);
-        } finally {
-            setIsLoadingTables(false);
-        }
-    };
-
-    // Загрузка списка состояний с сервера
-    const loadSostoyania = async () => {
-        // Проверяем, что все три типа файлов настроены
-        if (fileStatuses['Завоз/Вывоз'] !== 'success' || fileStatuses['RSS'] !== 'success' || fileStatuses['Словарь'] !== 'success') {
-            message.warning('Сначала настройте Завоз/Вывоз, RSS и Словарь');
-            return;
-        }
-
-        // Получаем названия таблиц из сохраненных выборов
-        const zvzSelection = savedSelections['Завоз/Вывоз'];
-        const rssSelection = savedSelections['RSS'];
-        const keyWordsSelection = savedSelections['Словарь'];
-
-        if (!zvzSelection || !rssSelection || !keyWordsSelection) {
-            message.warning('Не удалось получить названия таблиц');
-            return;
-        }
-
-        const zvzTableName = zvzSelection.type === 'upload' ? zvzSelection.tableName : zvzSelection.existingTableName;
-        const rssTableName = rssSelection.type === 'upload' ? rssSelection.tableName : rssSelection.existingTableName;
-
-        // Для словаря автоматически сопоставляем таблицы по названию
-        let sprRssTableName: string | undefined;
-        let sprZvzTableName: string | undefined;
-        let sprOvTableName: string | undefined;
-
-        if (keyWordsSelection.type === 'upload') {
-            sprRssTableName = keyWordsSelection.tableName;
-            sprZvzTableName = keyWordsSelection.tableName;
-            sprOvTableName = keyWordsSelection.tableName;
-        } else if (keyWordsSelection.existingTableNames) {
-            // Автоматически определяем какая таблица для какого параметра
-            keyWordsSelection.existingTableNames.forEach(tableName => {
-                const lowerName = tableName.toLowerCase();
-                if (lowerName.includes('rss')) {
-                    sprRssTableName = tableName;
-                } else if (lowerName.includes('zvz') || lowerName.includes('завоз')) {
-                    sprZvzTableName = tableName;
-                } else if (lowerName.includes('ov') || lowerName.includes('отгруз')) {
-                    sprOvTableName = tableName;
-                }
-            });
-        } else {
-            sprRssTableName = keyWordsSelection.existingTableName;
-            sprZvzTableName = keyWordsSelection.existingTableName;
-            sprOvTableName = keyWordsSelection.existingTableName;
-        }
-
-        if (!zvzTableName || !rssTableName || !sprRssTableName || !sprZvzTableName || !sprOvTableName) {
-            message.warning('Не удалось определить названия таблиц');
-            return;
-        }
-
-        setIsLoadingSostoyania(true);
-        try {
-            const filterOptions = await fetchFilterOptions(zvzTableName, rssTableName, sprRssTableName, sprZvzTableName, sprOvTableName);
-
-            // Преобразуем массив строк в массив объектов с name
-            const sostoyaniOptions = filterOptions.states.map(state => ({ name: state }));
-            setSostoyania(sostoyaniOptions);
-        } catch (error: unknown) {
-            message.error('Не удалось загрузить список состояний');
-            console.error(error);
-        } finally {
-            setIsLoadingSostoyania(false);
-        }
-    };
-
-    // Добавление остатка в список
-    const handleAddOstatok = () => {
-        if (!selectedSostoyanie) {
-            message.warning('Пожалуйста, выберите состояние');
-            return;
-        }
-        if (ostatkiValue === null || ostatkiValue === undefined) {
-            message.warning('Пожалуйста, введите значение');
-            return;
-        }
-        if (ostatkiValue <= 0) {
-            message.warning('Значение должно быть больше нуля');
-            return;
-        }
-
-        const newOstatok: OstatokItem = {
-            id: Date.now().toString(),
-            sostoyanie: selectedSostoyanie,
-            value: ostatkiValue,
-        };
-
-        setOstatkiList([...ostatkiList, newOstatok]);
-        setSelectedSostoyanie(undefined);
-        setOstatkiValue(null);
-        message.success('Остаток добавлен');
-    };
-
-    // Удаление остатка из списка
-    const handleRemoveOstatok = (id: string) => {
-        setOstatkiList(ostatkiList.filter(item => item.id !== id));
-        message.success('Остаток удален');
-    };
-
-    // Сохранение остатков
-    const handleSaveOstatki = async () => {
-        if (!ostatkiTableName.trim()) {
-            message.warning('Пожалуйста, укажите название таблицы');
-            return;
-        }
-        if (!ostatkiMonthYear) {
-            message.warning('Пожалуйста, выберите дату');
-            return;
-        }
-        if (ostatkiList.length === 0) {
-            message.warning('Добавьте хотя бы один остаток');
-            return;
-        }
-
-        try {
-            // Преобразуем массив остатков в объект { "состояние1": значение1, "состояние2": значение2 }
-            const leftoversObject = ostatkiList.reduce((acc, item) => {
-                acc[item.sostoyanie] = item.value;
-                return acc;
-            }, {} as Record<string, number>);
-
-            // Форматируем дату в строку YYYY-MM-DD (ISO формат даты без времени)
-            const formattedDate = ostatkiMonthYear.format('YYYY-MM-DD');
-
-            const response = await fetch(`${API_BASE_URL}/leftovers`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'ngrok-skip-browser-warning': 'true',
-                },
-                body: JSON.stringify({
-                    table_name: ostatkiTableName,
-                    date: formattedDate,
-                    leftovers: leftoversObject,
-                }),
-            });
-
-            if (!response.ok) {
-                throw new Error('Не удалось сохранить остатки');
-            }
-
-            message.success('Остатки успешно сохранены!');
-            setOstatkiStatus('success');
-        } catch (error: unknown) {
-            message.error(`Ошибка при сохранении остатков: ${getErrorMessage(error)}`);
-            console.error(error);
-        }
-    };
-
-    // Загружаем таблицы при переключении на вкладку "existing"
     useEffect(() => {
-        if (activeTab === 'existing') {
-            loadExistingTables();
-        }
-    }, [activeTab]);
+        fetchTables()
+            .then(setExistingTables)
+            .catch(() => message.error('Не удалось загрузить таблицы'))
+            .finally(() => setIsLoadingTables(false));
+    }, []);
 
-    // Загружаем состояния при переключении на вкладку "ostatki"
-    useEffect(() => {
-        if (activeTab === 'ostatki') {
-            loadSostoyania();
-        }
-    }, [activeTab]);
-
-    // Фильтруем таблицы по текущему выбранному типу
-    const filteredTables = filterTablesByType(existingTables, currentFileType);
-
-    // Обработка загрузки файла
-    const handleFileUpload = async (file: File) => {
-        try {
-            const data = await file.arrayBuffer();
-            const wb = XLSX.read(data, {type: 'array'});
-
-            setWorkbook(wb);
-            setUploadedFile(file);
-            setSheetNames(wb.SheetNames);
-
-            if (wb.SheetNames.length > 0) {
-                const firstSheet = wb.SheetNames[0];
-                setSelectedSheet(firstSheet);
+    const handleSaveSuccess = (fileType: FileType, selection: FileSelection) => {
+        setFileStatuses(prev => {
+            const next = {...prev, [fileType]: 'success' as UploadStatus};
+            if (fileType === 'RSS') {
+                next['DV'] = 'success';
             }
-
-            message.success(`Файл ${file.name} успешно загружен`);
-        } catch (error: unknown) {
-            message.error('Ошибка при чтении файла Excel');
-            console.error(error);
-        }
-    };
-
-    // Очистка текущей формы
-    const resetCurrentForm = () => {
-        setUploadedFile(null);
-        setWorkbook(null);
-        setSheetNames([]);
-        setSelectedSheet("");
-        setTableName("");
-        setSelectedExistingTable(undefined);
-        setSelectedExistingTables([]);
-    };
-
-    // Изменение типа файла
-    const handleFileTypeChange = (newType: FileType) => {
-        setCurrentFileType(newType);
-        resetCurrentForm();
-
-        // Восстанавливаем сохраненный выбор, если есть
-        const saved = savedSelections[newType];
-        if (saved) {
-            setActiveTab(saved.type);
-            if (saved.type === 'upload') {
-                setUploadedFile(saved.file || null);
-                setWorkbook(saved.workbook || null);
-                setSheetNames(saved.sheetNames || []);
-                setSelectedSheet(saved.selectedSheet || '');
-                setTableName(saved.tableName || '');
-            } else {
-                // Для словаря восстанавливаем массив, для остальных - одну таблицу
-                if (newType === 'Словарь' && saved.existingTableNames) {
-                    setSelectedExistingTables(saved.existingTableNames);
-                } else {
-                    setSelectedExistingTable(saved.existingTableName);
-                }
-            }
-        } else {
-            // Если нет сохраненного выбора, устанавливаем вкладку по умолчанию
-            if (newType === 'Остатки') {
-                setActiveTab('existing');
-            } else {
-                setActiveTab('upload');
-            }
-        }
-    };
-
-    // Сохранение выбора файла
-    const handleSaveSelection = async () => {
-        if (activeTab === 'upload') {
-            if (!uploadedFile) {
-                message.warning('Пожалуйста, загрузите файл');
-                return;
-            }
-            if (!tableName.trim()) {
-                message.warning('Пожалуйста, укажите название таблицы');
-                return;
-            }
-            // Для типа "Словарь" не требуем выбор листа
-            if (currentFileType !== 'Словарь' && !selectedSheet) {
-                message.warning('Пожалуйста, выберите лист');
-                return;
-            }
-
-            // Сразу отправляем файл на сервер
-            setIsUploading(true);
-            try {
-                const formData = new FormData();
-                formData.append('file', uploadedFile);
-                formData.append('table_type', currentFileType);
-                formData.append('table_name', tableName);
-                // Для типа "Словарь" используем первый лист, для остальных - выбранный
-                const sheetToUpload = currentFileType === 'Словарь' ? (sheetNames[0] || '') : selectedSheet;
-                formData.append('sheet_name', sheetToUpload);
-
-                const response = await fetch(`${API_BASE_URL}/upload/file`, {
-                    method: 'POST',
-                    headers: {
-                        'ngrok-skip-browser-warning': 'false',
-                    },
-                    body: formData,
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('Ошибка ответа:', errorText);
-                    throw new Error(`Ошибка при загрузке: ${response.status} ${response.statusText}`);
-                }
-
-                await response.json();
-
-                // Сохраняем выбор после успешной загрузки
-                setSavedSelections(prev => ({
-                    ...prev,
-                    [currentFileType]: {
-                        type: 'upload',
-                        file: uploadedFile,
-                        workbook: workbook || undefined,
-                        sheetNames: sheetNames,
-                        selectedSheet: selectedSheet,
-                        tableName: tableName,
-                    }
-                }));
-
-                setFileStatuses(prev => ({
-                    ...prev,
-                    [currentFileType]: 'success'
-                }));
-
-                message.success(`${fileTypeOptions.find(o => o.value === currentFileType)?.label} успешно загружен на сервер`);
-
-                // Переключаемся на следующий тип файла после успешной загрузки
-                if (currentFileType === 'Завоз/Вывоз' && fileStatuses['RSS'] === 'idle') {
-                    handleFileTypeChange('RSS');
-                } else if (currentFileType === 'RSS' && fileStatuses['Словарь'] === 'idle') {
-                    handleFileTypeChange('Словарь');
-                } else if (currentFileType === 'Словарь' && fileStatuses['Остатки'] === 'idle') {
-                    handleFileTypeChange('Остатки');
-                } else if (currentFileType === 'Остатки' && fileStatuses['OV'] === 'idle') {
-                    handleFileTypeChange('OV');
-                } else if (currentFileType === 'OV' && fileStatuses['DV'] === 'idle') {
-                    handleFileTypeChange('DV');
-                }
-            } catch (error: unknown) {
-                message.error(`Ошибка при загрузке файла: ${getErrorMessage(error)}`);
-                console.error('Ошибка:', error);
-            } finally {
-                setIsUploading(false);
-            }
-        } else {
-            // Для словаря проверяем массив, для остальных - одну таблицу
-            if (currentFileType === 'Словарь') {
-                if (!selectedExistingTables || selectedExistingTables.length !== 3) {
-                    message.warning('Пожалуйста, выберите ровно 3 таблицы словаря (в порядке: RSS, Завоз/Вывоз, OV)');
-                    return;
-                }
-            } else {
-                if (!selectedExistingTable) {
-                    message.warning('Пожалуйста, выберите таблицу');
-                    return;
-                }
-            }
-
-            setSavedSelections(prev => ({
-                ...prev,
-                [currentFileType]: {
-                    type: 'existing',
-                    existingTableName: currentFileType === 'Словарь' ? undefined : selectedExistingTable,
-                    existingTableNames: currentFileType === 'Словарь' ? selectedExistingTables : undefined,
-                }
-            }));
-
-            setFileStatuses(prev => ({
-                ...prev,
-                [currentFileType]: 'success'
-            }));
-
-            message.success(`${fileTypeOptions.find(o => o.value === currentFileType)?.label} успешно настроен`);
-
-            // Переключаемся на следующий тип файла после успешного сохранения
-            if (currentFileType === 'Завоз/Вывоз' && fileStatuses['RSS'] === 'idle') {
-                handleFileTypeChange('RSS');
-            } else if (currentFileType === 'RSS' && fileStatuses['Словарь'] === 'idle') {
-                handleFileTypeChange('Словарь');
-            } else if (currentFileType === 'Словарь' && fileStatuses['Остатки'] === 'idle') {
-                handleFileTypeChange('Остатки');
-            } else if (currentFileType === 'Остатки' && fileStatuses['OV'] === 'idle') {
-                handleFileTypeChange('OV');
-            } else if (currentFileType === 'OV' && fileStatuses['DV'] === 'idle') {
-                handleFileTypeChange('DV');
-            }
-        }
-    };
-
-    // Переход на главную страницу с параметрами таблиц
-    const handleSubmitAll = async () => {
-        const allConfigured = fileStatuses['Завоз/Вывоз'] === 'success' &&
-            fileStatuses['RSS'] === 'success' &&
-            fileStatuses['Словарь'] === 'success';
-
-        if (!allConfigured) {
-            message.warning('Пожалуйста, настройте все три типа файлов');
-            return;
-        }
-
-        const tableNames: Record<string, string> = {};
-        let sprTables: string[] = [];
-
-        // Собираем названия таблиц из сохраненных выборов
-        for (const fileType of ['Завоз/Вывоз', 'RSS', 'Словарь'] as FileType[]) {
-            const selection = savedSelections[fileType];
-            if (!selection) continue;
-
-            if (selection.type === 'upload') {
-                tableNames[fileType] = selection.tableName || '';
-            } else if (selection.type === 'existing') {
-                // Для словаря сохраняем массив таблиц
-                if (fileType === 'Словарь' && selection.existingTableNames) {
-                    sprTables = selection.existingTableNames;
-                } else {
-                    tableNames[fileType] = selection.existingTableName || '';
-                }
-            }
-        }
-
-        message.success('Переход на главную страницу...');
-
-        // Формируем URL с параметрами таблиц вручную (без кодирования запятых)
-        const queryParams: string[] = [];
-
-        queryParams.push(`zvz_table=${tableNames['Завоз/Вывоз'] || ''}`);
-        queryParams.push(`rss_table=${tableNames['RSS'] || ''}`);
-
-        // Автоматически сопоставляем таблицы словарей по названию
-        let sprRssTable = '';
-        let sprZvzTable = '';
-        let sprOvTable = '';
-
-        sprTables.forEach(tableName => {
-            const lowerName = tableName.toLowerCase();
-            if (lowerName.includes('rss')) {
-                sprRssTable = tableName;
-            } else if (lowerName.includes('zvz') || lowerName.includes('завоз')) {
-                sprZvzTable = tableName;
-            } else if (lowerName.includes('ov') || lowerName.includes('отгруз')) {
-                sprOvTable = tableName;
-            }
+            return next;
         });
-
-        queryParams.push(`spr_rss_table=${sprRssTable}`);
-        queryParams.push(`spr_zvz_table=${sprZvzTable}`);
-        queryParams.push(`spr_ov_table=${sprOvTable}`);
-
-        // Добавляем таблицу отгруз/выгруз, если она была настроена
-        if (fileStatuses['OV'] === 'success') {
-            const otgruzSelection = savedSelections['OV'];
-            if (otgruzSelection) {
-                const otgruzTableName = otgruzSelection.type === 'upload'
-                    ? otgruzSelection.tableName
-                    : otgruzSelection.existingTableName;
-                if (otgruzTableName) {
-                    queryParams.push(`ov_table=${otgruzTableName}`);
-                }
+        setSavedSelections(prev => {
+            const next = {...prev, [fileType]: selection};
+            if (fileType === 'RSS') {
+                next['DV'] = {
+                    type: selection.type,
+                    dvFile: selection.dvFile,
+                    dvTableName: selection.dvTableName,
+                    existingTableName: selection.type === 'existing' ? selection.existingTableName : undefined,
+                };
             }
+            return next;
+        });
+        // Auto-advance to next step
+        if (currentStep < FILE_STEP_CONFIGS.length - 1) {
+            setCurrentStep(prev => prev + 1);
         }
-
-        // Добавляем таблицу ДВ, если она была настроена
-        if (fileStatuses['DV'] === 'success') {
-            const dvSelection = savedSelections['DV'];
-            if (dvSelection) {
-                const dvTableName = dvSelection.type === 'upload'
-                    ? dvSelection.tableName
-                    : dvSelection.existingTableName;
-                if (dvTableName) {
-                    queryParams.push(`dv_table=${dvTableName}`);
-                }
-            }
-        }
-
-        // Добавляем таблицу остатков, если она была настроена
-        // Проверяем два варианта: созданная новая таблица или выбранная существующая
-        let leftoversTableName = '';
-        if (ostatkiStatus === 'success' && ostatkiTableName) {
-            // Новая таблица остатков через вкладку "Добавить остатки"
-            leftoversTableName = ostatkiTableName;
-        } else if (fileStatuses['Остатки'] === 'success' && savedSelections['Остатки']?.existingTableName) {
-            // Существующая таблица остатков выбранная через тип данных "Остатки"
-            leftoversTableName = savedSelections['Остатки'].existingTableName;
-        }
-
-        if (leftoversTableName) {
-            queryParams.push(`leftovers_table=${leftoversTableName}`);
-        }
-
-        const queryString = queryParams.join('&');
-        setTimeout(() => navigate(`/main?${queryString}`), 1000);
     };
 
-    // Очистка всего
+    const handleOstatkiManualSave = (tableName: string) => {
+        setOstatkiManualTableName(tableName);
+        setOstatkiManualStatus('success');
+        if (currentStep < FILE_STEP_CONFIGS.length - 1) {
+            setCurrentStep(prev => prev + 1);
+        }
+    };
+
     const resetAll = () => {
-        setFileStatuses({'Завоз/Вывоз': 'idle', 'RSS': 'idle', 'Словарь': 'idle', 'Остатки': 'idle', 'OV': 'idle', 'DV': 'idle'});
-        setSavedSelections({'Завоз/Вывоз': null, 'RSS': null, 'Словарь': null, 'Остатки': null, 'OV': null, 'DV': null});
-        resetCurrentForm();
-        setCurrentFileType('Завоз/Вывоз');
-        setActiveTab('upload');
-        // Очистка остатков
-        setOstatkiList([]);
-        setOstatkiTableName("");
-        setOstatkiMonthYear(dayjs());
-        setSelectedSostoyanie(undefined);
-        setOstatkiValue(null);
-        setOstatkiStatus('idle');
+        setFileStatuses({...INITIAL_STATUSES});
+        setSavedSelections({...INITIAL_SELECTIONS});
+        setCurrentStep(0);
+        setOstatkiManualTableName('');
+        setOstatkiManualStatus('idle');
     };
 
-    const uploadProps: UploadProps = {
-        name: 'file',
-        multiple: false,
-        accept: '.xlsx,.xls',
-        beforeUpload: (file) => {
-            handleFileUpload(file);
-            return false;
-        },
-        onRemove: () => {
-            setUploadedFile(null);
-            setWorkbook(null);
-            setSheetNames([]);
-            setSelectedSheet("");
-            setTableName("");
-        },
-        fileList: uploadedFile ? [{
-            uid: '1',
-            name: uploadedFile.name,
-            status: 'done',
-        }] : [],
-    };
-
-    // Динамический список вкладок в зависимости от типа файла
-    const tabItems = currentFileType === 'Остатки' ? [
-        {
-            key: 'existing',
-            label: <span><DatabaseOutlined/> Использовать существующую таблицу</span>,
-        },
-        {
-            key: 'ostatki',
-            label: <span>+ Добавить остатки</span>,
-        }
-    ] : [
-        {
-            key: 'upload',
-            label: <span><UploadOutlined/> Загрузить новый файл</span>,
-        },
-        {
-            key: 'existing',
-            label: <span><DatabaseOutlined/> Использовать существующую таблицу</span>,
-        },
-    ];
-
-    const stepsItems: StepsProps['items'] = [
-        {
-            title: 'Завоз/Вывоз',
-            status: fileStatuses['Завоз/Вывоз'] === 'success' ? 'finish' : 'wait',
-            icon: fileStatuses['Завоз/Вывоз'] === 'success' ? <CheckCircleOutlined/> : undefined,
-        },
-        {
-            title: 'ДВ (опционально)',
-            status: fileStatuses['DV'] === 'success' ? 'finish' : 'wait',
-            icon: fileStatuses['DV'] === 'success' ? <CheckCircleOutlined/> : undefined,
-        },
-        {
-            title: 'RSS',
-            status: fileStatuses['RSS'] === 'success' ? 'finish' : 'wait',
-            icon: fileStatuses['RSS'] === 'success' ? <CheckCircleOutlined/> : undefined,
-        },
-        {
-            title: 'Словарь',
-            status: fileStatuses['Словарь'] === 'success' ? 'finish' : 'wait',
-            icon: fileStatuses['Словарь'] === 'success' ? <CheckCircleOutlined/> : undefined,
-        },
-        {
-            title: 'Остатки (опционально)',
-            status: (ostatkiStatus === 'success' || fileStatuses['Остатки'] === 'success') ? 'finish' : 'wait',
-            icon: (ostatkiStatus === 'success' || fileStatuses['Остатки'] === 'success') ? <CheckCircleOutlined/> : undefined,
-        },
-        {
-            title: 'Отгруз/Выгруз (опционально)',
-            status: fileStatuses['OV'] === 'success' ? 'finish' : 'wait',
-            icon: fileStatuses['OV'] === 'success' ? <CheckCircleOutlined/> : undefined,
-        },
-
-    ];
-
-    const allConfigured = fileStatuses['Завоз/Вывоз'] === 'success' &&
+    const allConfigured =
         fileStatuses['RSS'] === 'success' &&
-        fileStatuses['Словарь'] === 'success';
+        fileStatuses['DV'] === 'success' &&
+        fileStatuses['ZVZ'] === 'success' &&
+        fileStatuses['OG'] === 'success' &&
+        fileStatuses['VG'] === 'success';
+
+    const handleSubmitAll = () => {
+        if (!allConfigured) {
+            void message.warning('Настройте RSS + ДВ, Завоз/Вывоз, Отгрузку и Поступление');
+            return;
+        }
+
+        const queryString = buildQueryParams(
+            fileStatuses,
+            savedSelections,
+            ostatkiManualStatus === 'success' ? ostatkiManualTableName : undefined,
+        );
+        void message.success('Переход к анализу...');
+        setTimeout(() => navigate(`/main?${queryString}`), 500);
+    };
+
+    const goNext = () => setCurrentStep(prev => Math.min(prev + 1, FILE_STEP_CONFIGS.length - 1));
+    const goPrev = () => setCurrentStep(prev => Math.max(prev - 1, 0));
+
+    const isLastStep = currentStep === FILE_STEP_CONFIGS.length - 1;
+    const isFirstStep = currentStep === 0;
+    const isOptional = !FILE_STEP_CONFIGS[currentStep].required;
+    const currentFileType = FILE_STEP_CONFIGS[currentStep].fileType;
+
+    const stepsItems = FILE_STEP_CONFIGS.map((config, index) => {
+        const isOstatkiDone =
+            config.fileType === 'Остатки' &&
+            (fileStatuses['Остатки'] === 'success' || ostatkiManualStatus === 'success');
+
+        const isDone = isOstatkiDone || fileStatuses[config.fileType] === 'success';
+
+        let stepStatus: 'wait' | 'process' | 'finish' | 'error';
+        if (isDone) {
+            stepStatus = 'finish';
+        } else if (currentStep === index) {
+            stepStatus = 'process';
+        } else {
+            stepStatus = 'wait';
+        }
+
+        return {
+            title: config.label,
+            description: !config.required ? '(опционально)' : undefined,
+            status: stepStatus,
+        };
+    });
+
+    const renderStepContent = () => {
+        if (currentFileType === 'Остатки') {
+            return (
+                <OstatkiStepContent
+                    key="Остатки"
+                    fileStatus={fileStatuses['Остатки']}
+                    savedSelection={savedSelections['Остатки']}
+                    existingTables={existingTables}
+                    isLoadingTables={isLoadingTables}
+                    fileStatuses={fileStatuses}
+                    savedSelections={savedSelections}
+                    onExistingSaveSuccess={handleSaveSuccess}
+                    onManualSaveSuccess={handleOstatkiManualSave}
+                    manualStatus={ostatkiManualStatus}
+                />
+            );
+        }
+
+        return (
+            <FileStepContent
+                key={currentFileType}
+                fileType={currentFileType}
+                fileStatus={fileStatuses[currentFileType]}
+                savedSelection={savedSelections[currentFileType]}
+                existingTables={existingTables}
+                isLoadingTables={isLoadingTables}
+                onSaveSuccess={handleSaveSuccess}
+            />
+        );
+    };
 
     return (
-        <div>
-            <Modal
-                title="Загрузка файлов для анализа"
-                open={true}
-                width={1200}
-                footer={[
-                    <Button key="cancel" onClick={resetAll}>
-                        Очистить все
-                    </Button>,
+        <main style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
+            <Flex justify="space-between" align="center" style={{marginBottom: 24}}>
+                <h1 style={{margin: 0, fontSize: '1.5rem', color: '#002c8c'}}>Загрузка данных для анализа</h1>
+                <Flex gap="medium">
+                    <Button icon={<ClearOutlined/>} onClick={resetAll}>
+                        Очистить
+                    </Button>
                     <Button
-                        key="submit"
                         type="primary"
                         icon={<CheckCircleOutlined/>}
                         onClick={handleSubmitAll}
                         disabled={!allConfigured}
                     >
-                        Перейти к анализу
-                    </Button>,
-                ]}
-            >
-                <Flex vertical gap="middle" style={{marginBottom: '24px'}}>
-                    <Steps items={stepsItems}/>
+                        Анализ
+                    </Button>
                 </Flex>
+            </Flex>
 
-                <Card style={{marginBottom: '16px'}}>
-                    <Space vertical style={{width: '100%'}} size="middle">
-                        <div>
-                            <label style={{display: 'block', marginBottom: '8px', fontWeight: 500}}>
-                                Выберите тип данных
-                            </label>
-                            <Select
-                                style={{width: '100%'}}
-                                value={currentFileType}
-                                onChange={handleFileTypeChange}
-                                options={fileTypeOptions}
-                            />
-                        </div>
+            <Steps
+                current={currentStep}
+                items={stepsItems}
+                onChange={setCurrentStep}
+                size="small"
+                style={{marginBottom: 24}}
+            />
 
-                        <Tabs
-                            activeKey={activeTab}
-                            items={tabItems}
-                            onChange={(key) => setActiveTab(key as 'upload' | 'existing' | 'ostatki')}
-                        />
+            <Card style={{minHeight: 400, marginBottom: 24}}>
+                {renderStepContent()}
+            </Card>
 
-                        {activeTab === 'upload' ? (
-                            <>
-                                <Upload.Dragger {...uploadProps}>
-                                    <p className="ant-upload-drag-icon">
-                                        <InboxOutlined/>
-                                    </p>
-                                    <p className="ant-upload-text">Кликните или перетащите файл для загрузки</p>
-                                    <p className="ant-upload-hint">Поддерживаются форматы: .xlsx, .xls</p>
-                                </Upload.Dragger>
-
-                                {uploadedFile && (
-                                    <>
-                                        <div>
-                                            <label style={{display: 'block', marginBottom: '8px'}}>
-                                                Название таблицы
-                                            </label>
-                                            <Input
-                                                placeholder="Назовите таблицу"
-                                                value={tableName}
-                                                onChange={(e) => setTableName(e.target.value)}
-                                            />
-                                        </div>
-
-                                        {currentFileType !== 'Словарь' && (
-                                            <div>
-                                                <label style={{display: 'block', marginBottom: '8px'}}>
-                                                    Выберите лист (страницу)
-                                                </label>
-                                                <Select
-                                                    placeholder="Выберите нужную страницу"
-                                                    value={selectedSheet}
-                                                    onChange={setSelectedSheet}
-                                                    options={sheetNames.map(name => ({
-                                                        value: name,
-                                                        label: name,
-                                                    }))}
-                                                    style={{width: '100%'}}
-                                                />
-                                            </div>
-                                        )}
-                                    </>
-                                )}
-
-                                <Button
-                                    type="primary"
-                                    onClick={handleSaveSelection}
-                                    block
-                                    disabled={fileStatuses[currentFileType] === 'success'}
-                                    loading={isUploading}
-                                    icon={fileStatuses[currentFileType] === 'success' ? <CheckCircleOutlined/> : undefined}
-                                >
-                                    {fileStatuses[currentFileType] === 'success'
-                                        ? 'Сохранено'
-                                        : isUploading ? 'Загрузка...' : 'Сохранить выбор'}
-                                </Button>
-                            </>
-                        ) : activeTab === 'existing' ? (
-                            <>
-                                <div>
-                                    <label style={{display: 'block', marginBottom: '8px'}}>
-                                        Доступные таблицы
-                                    </label>
-                                    <Select
-                                        mode={currentFileType === 'Словарь' ? 'multiple' : undefined}
-                                        placeholder={isLoadingTables ? 'Загрузка...' : currentFileType === 'Словарь' ? 'Выберите таблицы' : 'Выберите таблицу'}
-                                        value={currentFileType === 'Словарь' ? selectedExistingTables : selectedExistingTable}
-                                        onChange={(value) => {
-                                            if (currentFileType === 'Словарь') {
-                                                setSelectedExistingTables(value as string[]);
-                                            } else {
-                                                setSelectedExistingTable(value as string);
-                                            }
-                                        }}
-                                        loading={isLoadingTables}
-                                        disabled={isLoadingTables}
-                                        options={filteredTables.map((table) => ({
-                                            value: table.table_name,
-                                            label: table.table_name,
-                                        }))}
-                                        style={{width: '100%'}}
-                                        notFoundContent={
-                                            isLoadingTables
-                                                ? 'Загрузка...'
-                                                : filteredTables.length === 0
-                                                    ? `Нет доступных таблиц типа "${fileTypeOptions.find(o => o.value === currentFileType)?.label}"`
-                                                    : null
-                                        }
-                                    />
-                                </div>
-
-                                <Button
-                                    type="primary"
-                                    onClick={handleSaveSelection}
-                                    block
-                                    disabled={fileStatuses[currentFileType] === 'success'}
-                                    loading={isUploading}
-                                    icon={fileStatuses[currentFileType] === 'success' ? <CheckCircleOutlined/> : undefined}
-                                >
-                                    {fileStatuses[currentFileType] === 'success'
-                                        ? 'Сохранено'
-                                        : isUploading ? 'Загрузка...' : 'Сохранить выбор'}
-                                </Button>
-                            </>
-                        ) : (
-                            <>
-                                <div>
-                                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 500}}>
-                                        Название таблицы
-                                    </label>
-                                    <Input
-                                        placeholder="Введите название таблицы остатков"
-                                        value={ostatkiTableName}
-                                        onChange={(e) => setOstatkiTableName(e.target.value)}
-                                        disabled={ostatkiStatus === 'success'}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 500}}>
-                                        Дата
-                                    </label>
-                                    <DatePicker
-                                        placeholder="Выберите дату (ДД.ММ.ГГГГ)"
-                                        value={ostatkiMonthYear}
-                                        onChange={setOstatkiMonthYear}
-                                        style={{width: '100%'}}
-                                        disabled={ostatkiStatus === 'success'}
-                                        format="DD.MM.YYYY"
-                                    />
-                                </div>
-
-                                <Flex gap="middle" align="flex-end">
-                                    <div style={{flex: 1}}>
-                                        <label style={{display: 'block', marginBottom: '8px', fontWeight: 500}}>
-                                            Состояние
-                                        </label>
-                                        <Select
-                                            placeholder={isLoadingSostoyania ? 'Загрузка...' : 'Выберите состояние'}
-                                            value={selectedSostoyanie}
-                                            onChange={setSelectedSostoyanie}
-                                            loading={isLoadingSostoyania}
-                                            disabled={isLoadingSostoyania}
-                                            options={sostoyania.map((s) => ({
-                                                value: s.name,
-                                                label: s.name,
-                                            }))}
-                                            style={{width: '100%'}}
-                                        />
-                                    </div>
-
-                                    <div style={{flex: 1}}>
-                                        <label style={{display: 'block', marginBottom: '8px', fontWeight: 500}}>
-                                            Значение
-                                        </label>
-                                        <InputNumber
-                                            placeholder="Введите значение"
-                                            value={ostatkiValue}
-                                            onChange={setOstatkiValue}
-                                            style={{width: '100%'}}
-                                            min={0}
-                                        />
-                                    </div>
-
-                                    <Button
-                                        type="primary"
-                                        icon={<PlusOutlined/>}
-                                        onClick={handleAddOstatok}
-                                    >
-                                        Добавить
-                                    </Button>
-                                </Flex>
-
-                                {ostatkiList.length > 0 && (
-                                    <>
-                                        <div>
-                                            <label style={{display: 'block', marginBottom: '8px', fontWeight: 500}}>
-                                                Добавленные остатки
-                                            </label>
-                                            <List
-                                                bordered
-                                                dataSource={ostatkiList}
-                                                renderItem={(item) => (
-                                                    <List.Item
-                                                        actions={[
-                                                            <Button
-                                                                key="delete"
-                                                                type="text"
-                                                                danger
-                                                                icon={<DeleteOutlined/>}
-                                                                onClick={() => handleRemoveOstatok(item.id)}
-                                                            >
-                                                                Удалить
-                                                            </Button>
-                                                        ]}
-                                                    >
-                                                        <Flex justify="space-between" style={{width: '100%'}}>
-                                                            <span><strong>{item.sostoyanie}</strong></span>
-                                                            <span>{item.value}</span>
-                                                        </Flex>
-                                                    </List.Item>
-                                                )}
-                                            />
-                                        </div>
-
-                                        <Button
-                                            type="primary"
-                                            onClick={handleSaveOstatki}
-                                            block
-                                            disabled={ostatkiStatus === 'success'}
-                                            icon={ostatkiStatus === 'success' ? <CheckCircleOutlined/> : <UploadOutlined/>}
-                                        >
-                                            {ostatkiStatus === 'success' ? 'Сохранено' : 'Сохранить остатки'}
-                                        </Button>
-                                    </>
-                                )}
-                            </>
-                        )}
-                    </Space>
-                </Card>
-            </Modal>
-        </div>
+            <Flex justify="space-between">
+                <Button
+                    icon={<LeftOutlined/>}
+                    onClick={goPrev}
+                    disabled={isFirstStep}
+                >
+                    Назад
+                </Button>
+                <Flex gap="small">
+                    {isOptional && !isLastStep && (
+                        <Button onClick={goNext}>
+                            Пропустить
+                        </Button>
+                    )}
+                    {isLastStep ? (
+                        <Button
+                            type="primary"
+                            icon={<CheckCircleOutlined/>}
+                            onClick={handleSubmitAll}
+                            disabled={!allConfigured}
+                        >
+                            Перейти к анализу
+                        </Button>
+                    ) : (
+                        <Button
+                            type="primary"
+                            onClick={goNext}
+                        >
+                            Далее <RightOutlined/>
+                        </Button>
+                    )}
+                </Flex>
+            </Flex>
+        </main>
     );
 };
 

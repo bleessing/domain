@@ -18,6 +18,6 @@ export const baseApi = createApi({
         },
     }),
     // Определяем типы тегов для инвалидации кэша
-    tagTypes: ['Balance', 'Dynamics', 'Sankey', 'Filters', 'Leftovers', 'Tables'],
+    tagTypes: ['Balance', 'Dynamics', 'Sankey', 'Filters', 'Leftovers', 'Tables', 'Waterfall'],
     endpoints: () => ({}),
 });

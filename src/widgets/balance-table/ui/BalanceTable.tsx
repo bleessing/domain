@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { Table, type TableProps } from 'antd';
 import type { BalanceTableItem } from '@/entities/balance';
 
@@ -83,4 +83,4 @@ const BalanceTable: React.FC<BalanceTableProps> = ({ data }) => {
     );
 };
 
-export default BalanceTable;
+export default memo(BalanceTable);

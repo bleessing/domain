@@ -11,9 +11,23 @@ export default defineConfig({
     },
   },
   server: {
-    port: 7000,
+    port: 3000,
     cors: {
-      origin: 'https://1b772d47ef2f.ngrok-free.app',
+      origin: process.env.VITE_CORS_ORIGIN || '*',
     },
-  }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Plotly в отдельном чанке — загружается только при первом показе чарта
+          'vendor-plotly': ['plotly.js', 'react-plotly.js'],
+          // React-экосистема — стабильный кешируемый чанк
+          'vendor-react': ['react', 'react-dom', 'react-router'],
+          // Ant Design — большая библиотека, отдельный кешируемый чанк
+          'vendor-antd': ['antd'],
+        },
+      },
+    },
+  },
 })

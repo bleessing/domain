@@ -1,14 +1,34 @@
-import { useEffect, useState } from 'react';
-import { Col, Row, Radio, message } from 'antd';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Col, Row, Radio, Spin, message } from 'antd';
 import { useSearchParams } from 'react-router';
+import { useGetFilterOptionsQuery } from '@/entities/filter/api/filterApiSlice';
 
-import { SankeyDiagram, useSankeyData } from '@/widgets/sankey-diagram';
-import { BalanceTable, useBalanceData } from '@/widgets/balance-table';
-import { DynamicsChart, useDynamicsData } from '@/widgets/dynamics-chart';
-import { LeftoversChart, useLeftoversData } from '@/widgets/leftovers-chart';
+// Хуки данных импортируются напрямую из model-файлов,
+// чтобы не тянуть Plotly через barrel-файлы виджетов
+import { useSankeyData } from '@/widgets/sankey-diagram/model/useSankeyData';
+import { useBalanceData } from '@/widgets/balance-table/model/useBalanceData';
+import { useDynamicsData } from '@/widgets/dynamics-chart/model/useDynamicsData';
+import { useLeftoversData } from '@/widgets/leftovers-chart/model/useLeftoversData';
+import { useWaterfallData } from '@/widgets/waterfall-chart/model/useWaterfallData';
+
+// BalanceTable не использует Plotly — можно грузить сразу
+import BalanceTable from '@/widgets/balance-table/ui/BalanceTable';
+
 import { FiltersPanel } from '@/features/filters';
 import { ExportButtons } from '@/features/export';
-import { fetchFilterOptions, type FilterOptions, type FilterParams } from '@/entities/filter';
+import type { FilterParams } from '@/entities/filter';
+
+// Тяжёлые Plotly-компоненты (~3MB) — загружаются лениво при первом показе данных
+const SankeyDiagram = lazy(() => import('@/widgets/sankey-diagram/ui/SankeyDiagram'));
+const DynamicsChart = lazy(() => import('@/widgets/dynamics-chart/ui/DynamicsChart'));
+const LeftoversChart = lazy(() => import('@/widgets/leftovers-chart/ui/LeftoversChart'));
+const WaterfallChart = lazy(() => import('@/widgets/waterfall-chart/ui/WaterfallChart'));
+
+const ChartFallback = (
+    <div style={{ padding: '48px', textAlign: 'center' }}>
+        <Spin size="large" aria-label="Загрузка графика..." />
+    </div>
+);
 
 function DashboardPage() {
     const [searchParams] = useSearchParams();
@@ -16,23 +36,17 @@ function DashboardPage() {
     // Получаем названия таблиц из URL
     const zvz_table = searchParams.get('zvz_table') || '';
     const rss_table = searchParams.get('rss_table') || '';
-    const spr_zvz_table = searchParams.get('spr_zvz_table') || '';
-    const spr_rss_table = searchParams.get('spr_rss_table') || '';
-    const spr_ov_table = searchParams.get('spr_ov_table') || '';
-    const ov_table = searchParams.get('ov_table') || '';
+    const og_table = searchParams.get('og_table') || '';
+    const vg_table = searchParams.get('vg_table') || '';
     const leftovers_table = searchParams.get('leftovers_table') || '';
 
-    const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null);
-    const [isLoadingFilters, setIsLoadingFilters] = useState<boolean>(false);
     const [dynamicsChartType, setDynamicsChartType] = useState<'bar' | 'line'>('bar');
 
     const [currentFilters, setCurrentFilters] = useState<FilterParams>({
         zvz_table,
         rss_table,
-        spr_zvz_table,
-        spr_rss_table,
-        spr_ov_table,
-        ov_table,
+        og_table,
+        vg_table,
         ost_table: leftovers_table,
         sources_mode: 'in',
         targets_mode: 'in',
@@ -49,84 +63,56 @@ function DashboardPage() {
         is_leftovers: false,
     });
 
+    const { data: filterOptions, isLoading: isLoadingFilters, isError: isFilterError } =
+        useGetFilterOptionsQuery(
+            { zvz_table, rss_table, og_table: og_table || undefined, vg_table: vg_table || undefined },
+            { skip: !zvz_table || !rss_table },
+        );
+
+    useEffect(() => {
+        if (isFilterError) message.error('Ошибка при загрузке фильтров');
+    }, [isFilterError]);
+
+    // Подставляем даты из filterOptions как дефолтные, пока пользователь их не выбрал вручную
+    const effectiveFilters = useMemo<FilterParams>(() => ({
+        ...currentFilters,
+        date_from: currentFilters.date_from ?? filterOptions?.date_range.min ?? null,
+        date_to: currentFilters.date_to ?? filterOptions?.date_range.max ?? null,
+    }), [currentFilters, filterOptions]);
+
     // Виджеты с их хуками
     const sankeyWidget = useSankeyData();
     const balanceWidget = useBalanceData();
     const dynamicsWidget = useDynamicsData();
     const leftoversWidget = useLeftoversData();
+    const waterfallWidget = useWaterfallData();
 
-    // Загрузка фильтров при монтировании компонента
-    useEffect(() => {
-        if (!zvz_table || !rss_table || !spr_zvz_table || !spr_rss_table || !spr_ov_table) {
-            message.error('Отсутствуют параметры таблиц в URL. Пожалуйста, вернитесь на страницу загрузки.');
-            return;
-        }
-
-        const loadFilters = async () => {
-            setIsLoadingFilters(true);
-            try {
-                const options = await fetchFilterOptions(
-                    zvz_table,
-                    rss_table,
-                    spr_rss_table,
-                    spr_zvz_table,
-                    spr_ov_table,
-                    ov_table,
-                    leftovers_table
-                );
-                setFilterOptions(options);
-
-                // Инициализируем фильтры с пустыми значениями
-                setCurrentFilters({
-                    zvz_table,
-                    rss_table,
-                    spr_zvz_table,
-                    spr_rss_table,
-                    spr_ov_table,
-                    ov_table,
-                    ost_table: leftovers_table,
-                    sources_mode: 'in',
-                    targets_mode: 'in',
-                    diameters_mode: 'in',
-                    types_mode: 'in',
-                    states_mode: 'in',
-                    sources: [],
-                    targets: [],
-                    diameters: [],
-                    types: [],
-                    states: [],
-                    date_from: options.date_range.min,
-                    date_to: options.date_range.max,
-                    is_leftovers: false,
-                });
-            } catch (error) {
-                message.error('Ошибка при загрузке фильтров');
-                console.error(error);
-            } finally {
-                setIsLoadingFilters(false);
-            }
-        };
-
-        loadFilters();
-    }, [zvz_table, rss_table, spr_zvz_table, spr_rss_table, spr_ov_table, ov_table, leftovers_table]);
+    // Суффикс заголовков с выбранными состояниями
+    const statesSuffix = useMemo(
+        () => currentFilters.states?.length > 0 ? ` (${currentFilters.states.join(', ')})` : '',
+        [currentFilters.states],
+    );
 
     // Обработка нажатия кнопки "Обновить диаграмму"
-    const handleApplyFilters = async () => {
+    const handleApplyFilters = useCallback(async () => {
         // Для графика остатков всегда используем is_leftovers: true
-        const leftoverFilters = {
-            ...currentFilters,
-            is_leftovers: true,
-        };
+        const leftoverFilters = { ...effectiveFilters, is_leftovers: true };
 
-        await Promise.all([
-            sankeyWidget.loadData(currentFilters),
-            balanceWidget.loadData(currentFilters),
-            dynamicsWidget.loadData(currentFilters),
-            leftoversWidget.loadData(leftoverFilters),
-        ]);
-    };
+        try {
+            await Promise.all([
+                sankeyWidget.loadData(effectiveFilters),
+                balanceWidget.loadData(effectiveFilters),
+                dynamicsWidget.loadData(effectiveFilters),
+                leftoversWidget.loadData(leftoverFilters),
+                waterfallWidget.loadData(effectiveFilters),
+            ]);
+        } catch (error) {
+            message.error('Ошибка при загрузке данных');
+            console.error('handleApplyFilters error:', error);
+        }
+    }, [effectiveFilters, sankeyWidget, balanceWidget, dynamicsWidget, leftoversWidget, waterfallWidget]);
 
-    if (!zvz_table || !rss_table || !spr_zvz_table || !spr_rss_table || !spr_ov_table) {
+    if (!zvz_table || !rss_table) {
         return (
             <div style={{ padding: '48px', textAlign: 'center' }}>
                 <h2>Отсутствуют параметры таблиц</h2>
@@ -138,6 +124,7 @@ function DashboardPage() {
     if (isLoadingFilters) {
         return (
             <div style={{ padding: '48px', textAlign: 'center' }}>
+                <Spin size="large" />
                 <p style={{ marginTop: '16px' }}>Загрузка фильтров...</p>
             </div>
         );
@@ -156,7 +143,7 @@ function DashboardPage() {
                         gap: '12px'
                     }}>
                         <span style={{ fontWeight: 500, color: '#000' }}>Экспорт данных:</span>
-                        <ExportButtons filters={currentFilters} />
+                        <ExportButtons filters={effectiveFilters} />
                     </div>
                 </Col>
             </Row>
@@ -164,8 +151,8 @@ function DashboardPage() {
             <Row gutter={24} wrap={false}>
                 <Col>
                     <FiltersPanel
-                        filterOptions={filterOptions}
-                        currentFilters={currentFilters}
+                        filterOptions={filterOptions ?? null}
+                        currentFilters={effectiveFilters}
                         onFilterChange={setCurrentFilters}
                         onApplyFilters={handleApplyFilters}
                         isLoading={sankeyWidget.isLoading}
@@ -173,11 +160,13 @@ function DashboardPage() {
                 </Col>
                 <Col>
                     {sankeyWidget.data ? (
-                        <SankeyDiagram
-                            colorScheme='pastel'
-                            data={sankeyWidget.data}
-                            title={`Учет движения ГНО${currentFilters.states && currentFilters.states.length > 0 ? ` (${currentFilters.states.join(', ')})` : ''}`}
-                        />
+                        <Suspense fallback={ChartFallback}>
+                            <SankeyDiagram
+                                colorScheme='pastel'
+                                data={sankeyWidget.data}
+                                title={`Учет движения ГНО${statesSuffix}`}
+                            />
+                        </Suspense>
                     ) : (
                         <div style={{ padding: '48px', textAlign: 'center' }}>
                             <p style={{ color: 'darkred' }}>Нет данных для отображения. Настройте фильтры и нажмите "Обновить диаграмму".</p>
@@ -207,11 +196,13 @@ function DashboardPage() {
                                 <Radio.Button value="line">Линейный график</Radio.Button>
                             </Radio.Group>
                         </div>
-                        <DynamicsChart
-                            data={dynamicsWidget.data}
-                            chartType={dynamicsChartType}
-                            title={`Динамика${currentFilters.states && currentFilters.states.length > 0 ? ` (${currentFilters.states.join(', ')})` : ''}`}
-                        />
+                        <Suspense fallback={ChartFallback}>
+                            <DynamicsChart
+                                data={dynamicsWidget.data}
+                                chartType={dynamicsChartType}
+                                title={`Динамика${statesSuffix}`}
+                            />
+                        </Suspense>
                     </Col>
                 </Row>
             )}
@@ -219,10 +210,25 @@ function DashboardPage() {
             {leftoversWidget.data && (
                 <Row style={{ marginTop: '24px' }}>
                     <Col span={24}>
-                        <LeftoversChart
-                            data={leftoversWidget.data}
-                            title={`Накопительный баланс${currentFilters.states && currentFilters.states.length > 0 ? ` (${currentFilters.states.join(', ')})` : ''}`}
-                        />
+                        <Suspense fallback={ChartFallback}>
+                            <LeftoversChart
+                                data={leftoversWidget.data}
+                                title={`Накопительный баланс${statesSuffix}`}
+                            />
+                        </Suspense>
+                    </Col>
+                </Row>
+            )}
+
+            {waterfallWidget.data && (
+                <Row style={{ marginTop: '24px' }}>
+                    <Col span={24}>
+                        <Suspense fallback={ChartFallback}>
+                            <WaterfallChart
+                                data={waterfallWidget.data}
+                                title={`Waterfall${statesSuffix}`}
+                            />
+                        </Suspense>
                     </Col>
                 </Row>
             )}
