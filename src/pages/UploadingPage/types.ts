@@ -58,6 +58,8 @@ export function buildQueryParams(
 ): string {
     const queryParams: string[] = [];
     const tableNames: Record<string, string> = {};
+    // encodeURIComponent — чтобы кириллица и пробелы в именах таблиц корректно ушли в URL.
+    const add = (key: string, value: string) => queryParams.push(`${key}=${encodeURIComponent(value)}`);
 
     for (const fileType of ['ZVZ', 'RSS'] as FileType[]) {
         const selection = savedSelections[fileType];
@@ -70,14 +72,14 @@ export function buildQueryParams(
         }
     }
 
-    queryParams.push(`zvz_table=${tableNames['ZVZ'] || ''}`);
-    queryParams.push(`rss_table=${tableNames['RSS'] || ''}`);
+    add('zvz_table', tableNames['ZVZ'] || '');
+    add('rss_table', tableNames['RSS'] || '');
 
     if (fileStatuses['OG'] === 'success') {
         const sel = savedSelections['OG'];
         if (sel) {
             const name = sel.type === 'upload' ? sel.tableName : sel.existingTableName;
-            if (name) queryParams.push(`og_table=${name}`);
+            if (name) add('og_table', name);
         }
     }
 
@@ -85,7 +87,7 @@ export function buildQueryParams(
         const sel = savedSelections['VG'];
         if (sel) {
             const name = sel.type === 'upload' ? sel.tableName : sel.existingTableName;
-            if (name) queryParams.push(`vg_table=${name}`);
+            if (name) add('vg_table', name);
         }
     }
 
@@ -93,7 +95,7 @@ export function buildQueryParams(
         const sel = savedSelections['DV'];
         if (sel) {
             const name = sel.dvTableName || sel.existingTableName;
-            if (name) queryParams.push(`dv_table=${name}`);
+            if (name) add('dv_table', name);
         }
     }
 
@@ -112,12 +114,8 @@ export function buildQueryParams(
             leftoversEnd = sel.existingTableNameEnd || sel.existingTableName || '';
         }
     }
-    if (leftoversStart) {
-        queryParams.push(`leftovers_table_start=${leftoversStart}`);
-    }
-    if (leftoversEnd) {
-        queryParams.push(`leftovers_table_end=${leftoversEnd}`);
-    }
+    if (leftoversStart) add('leftovers_table_start', leftoversStart);
+    if (leftoversEnd) add('leftovers_table_end', leftoversEnd);
 
     return queryParams.join('&');
 }

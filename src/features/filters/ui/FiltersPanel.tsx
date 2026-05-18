@@ -1,7 +1,7 @@
 import React, { memo, useMemo, useCallback } from 'react';
 import { Select, DatePicker, Button, Row, Col, Space, Typography, Flex } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
-import type { FilterOptions, FilterParams } from '@/entities/filter';
+import type { FilterKey, FilterOptions, FilterParams } from '@/entities/filter';
 import dayjs, { Dayjs } from 'dayjs';
 
 const { RangePicker } = DatePicker;
@@ -118,71 +118,89 @@ const FiltersPanel: React.FC<FiltersPanelProps> = memo(({
         return <div>Загрузка фильтров...</div>;
     }
 
+    // Какие секции фильтров рендерить.
+    // Если бэк прислал `available_filters` — используем его как whitelist.
+    // Если нет (старый бэк / совместимость) — считаем все секции применимы.
+    const isApplicable = (key: FilterKey): boolean =>
+        !filterOptions.available_filters || filterOptions.available_filters.includes(key);
+
     return (
         <div style={{ padding: '24px', background: '#f3f6f4', borderRadius: '8px' }}>
             <Row gutter={[12, 16]}>
                 <Col xs={23}>
                     <Space vertical style={{ width: '100%' }}>
-                        <FilterGroup
-                            title="Диаметры"
-                            modeKey="diameters_mode"
-                            valuesKey="diameters"
-                            options={filterOptions.diameters}
-                            currentFilters={currentFilters}
-                            modeOptions={modeOptions}
-                            onUpdate={updateFilter}
-                            isLoading={isLoading}
-                        />
-                        <FilterGroup
-                            title="Типы"
-                            modeKey="types_mode"
-                            valuesKey="types"
-                            options={filterOptions.types}
-                            currentFilters={currentFilters}
-                            modeOptions={modeOptions}
-                            onUpdate={updateFilter}
-                            isLoading={isLoading}
-                        />
-                        <FilterGroup
-                            title="Куда"
-                            modeKey="targets_mode"
-                            valuesKey="targets"
-                            options={filterOptions.targets}
-                            currentFilters={currentFilters}
-                            modeOptions={modeOptions}
-                            onUpdate={updateFilter}
-                            isLoading={isLoading}
-                        />
-                        <FilterGroup
-                            title="Откуда"
-                            modeKey="sources_mode"
-                            valuesKey="sources"
-                            options={filterOptions.sources}
-                            currentFilters={currentFilters}
-                            modeOptions={modeOptions}
-                            onUpdate={updateFilter}
-                            isLoading={isLoading}
-                        />
-                        <Flex vertical gap={'20px'}>
+                        {isApplicable('diameters') && (
                             <FilterGroup
-                                title="Состояния"
-                                modeKey="states_mode"
-                                valuesKey="states"
-                                options={filterOptions.states}
+                                title="Диаметры"
+                                modeKey="diameters_mode"
+                                valuesKey="diameters"
+                                options={filterOptions.diameters}
                                 currentFilters={currentFilters}
                                 modeOptions={modeOptions}
                                 onUpdate={updateFilter}
                                 isLoading={isLoading}
                             />
-                            <RangePicker
-                                style={{ width: '100%' }}
-                                value={dateRange}
-                                onChange={handleDateChange}
-                                format="YYYY-MM-DD"
-                                disabled={isLoading}
-                                minDate={minDate}
-                                maxDate={maxDate}
+                        )}
+                        {isApplicable('types') && (
+                            <FilterGroup
+                                title="Типы"
+                                modeKey="types_mode"
+                                valuesKey="types"
+                                options={filterOptions.types}
+                                currentFilters={currentFilters}
+                                modeOptions={modeOptions}
+                                onUpdate={updateFilter}
+                                isLoading={isLoading}
                             />
+                        )}
+                        {isApplicable('targets') && (
+                            <FilterGroup
+                                title="Куда"
+                                modeKey="targets_mode"
+                                valuesKey="targets"
+                                options={filterOptions.targets}
+                                currentFilters={currentFilters}
+                                modeOptions={modeOptions}
+                                onUpdate={updateFilter}
+                                isLoading={isLoading}
+                            />
+                        )}
+                        {isApplicable('sources') && (
+                            <FilterGroup
+                                title="Откуда"
+                                modeKey="sources_mode"
+                                valuesKey="sources"
+                                options={filterOptions.sources}
+                                currentFilters={currentFilters}
+                                modeOptions={modeOptions}
+                                onUpdate={updateFilter}
+                                isLoading={isLoading}
+                            />
+                        )}
+                        <Flex vertical gap={'20px'}>
+                            {isApplicable('states') && (
+                                <FilterGroup
+                                    title="Состояния"
+                                    modeKey="states_mode"
+                                    valuesKey="states"
+                                    options={filterOptions.states}
+                                    currentFilters={currentFilters}
+                                    modeOptions={modeOptions}
+                                    onUpdate={updateFilter}
+                                    isLoading={isLoading}
+                                />
+                            )}
+                            {isApplicable('date_range') && (
+                                <RangePicker
+                                    style={{ width: '100%' }}
+                                    value={dateRange}
+                                    onChange={handleDateChange}
+                                    format="YYYY-MM-DD"
+                                    disabled={isLoading}
+                                    minDate={minDate}
+                                    maxDate={maxDate}
+                                />
+                            )}
                         </Flex>
                         <Button
                             type="primary"

@@ -1,3 +1,15 @@
+/** Ключ применимого фильтра — соответствует полям в EquipmentConfig.applicable_filters на бэке. */
+export type FilterKey =
+    | 'states'
+    | 'date_range'
+    | 'diameters'
+    | 'types'
+    | 'sources'
+    | 'targets'
+    | 'processes'
+    | 'flows'
+    | 'nomenclatures';
+
 export interface FilterOptions {
     sources: string[];
     targets: string[];
@@ -9,6 +21,13 @@ export interface FilterOptions {
         max: string;
     };
     filter_modes: string[];
+    /**
+     * Список фильтров, которые имеют смысл для текущего типа оборудования
+     * (PIPES/PUMPS/RODS). Используй для условного рендера секций UI:
+     * `if (options.available_filters?.includes('diameters')) <DiametersSection />`.
+     * Если поле отсутствует (старый бэк) — считаем все фильтры применимы.
+     */
+    available_filters?: FilterKey[];
 }
 
 export interface FilterParams {

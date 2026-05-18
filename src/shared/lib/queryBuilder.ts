@@ -41,37 +41,39 @@ export function buildFilterQuery(filters: FilterParams, options: FilterQueryOpti
     } = options;
 
     const params: string[] = [];
+    const enc = (v: string | number | boolean) => encodeURIComponent(String(v));
+    const add = (key: string, value: string | number | boolean) => params.push(`${key}=${enc(value)}`);
 
     // Обязательные параметры таблиц
-    params.push(`zvz_table=${filters.zvz_table}`);
-    params.push(`rss_table=${filters.rss_table}`);
-    if (filters.og_table) params.push(`og_table=${filters.og_table}`);
-    if (filters.vg_table) params.push(`vg_table=${filters.vg_table}`);
+    add('zvz_table', filters.zvz_table);
+    add('rss_table', filters.rss_table);
+    if (filters.og_table) add('og_table', filters.og_table);
+    if (filters.vg_table) add('vg_table', filters.vg_table);
 
     // Таблицы остатков
     if (ostTableMode === 'both') {
-        if (filters.ost_table_start) params.push(`ost_table_start=${filters.ost_table_start}`);
-        if (filters.ost_table_end) params.push(`ost_table_end=${filters.ost_table_end}`);
+        if (filters.ost_table_start) add('ost_table_start', filters.ost_table_start);
+        if (filters.ost_table_end) add('ost_table_end', filters.ost_table_end);
     } else {
         const single = ostTableMode === 'start' ? filters.ost_table_start : filters.ost_table_end;
-        if (single) params.push(`${ostTableKey}=${single}`);
+        if (single) add(ostTableKey, single);
     }
 
     // is_leftovers из фильтров (опционально)
     if (includeIsLeftovers && filters.is_leftovers !== undefined) {
-        params.push(`is_leftovers=${filters.is_leftovers}`);
+        add('is_leftovers', filters.is_leftovers);
     }
 
     // Статические параметры (жёстко заданные значения)
     for (const [key, value] of Object.entries(staticParams)) {
-        params.push(`${key}=${value}`);
+        add(key, value);
     }
 
     // Mode-параметры (условные, с поддержкой переопределения значения)
     for (const mode of modes) {
         const filterValue = filters[mode];
         if (filterValue) {
-            params.push(`${mode}=${modeOverrides[mode] ?? filterValue}`);
+            add(mode, modeOverrides[mode] ?? filterValue);
         }
     }
 
@@ -79,13 +81,13 @@ export function buildFilterQuery(filters: FilterParams, options: FilterQueryOpti
     for (const key of arrays) {
         const arr = filters[key];
         if (arr && arr.length > 0) {
-            arr.forEach(v => params.push(`${key}=${v}`));
+            arr.forEach(v => add(key, v));
         }
     }
 
     // Даты
-    if (filters.date_from) params.push(`date_from=${filters.date_from}`);
-    if (filters.date_to) params.push(`date_to=${filters.date_to}`);
+    if (filters.date_from) add('date_from', filters.date_from);
+    if (filters.date_to) add('date_to', filters.date_to);
 
     return params.join('&');
 }

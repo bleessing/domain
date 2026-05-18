@@ -1,1 +1,1 @@
-export type { FilterOptions, FilterParams } from './model/types';
+export type { FilterKey, FilterOptions, FilterParams } from './model/types';
