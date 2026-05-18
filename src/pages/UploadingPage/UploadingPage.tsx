@@ -1,12 +1,17 @@
 import {useState, useEffect} from 'react';
-import {Steps, Button, Flex, Card, message} from 'antd';
-import {CheckCircleOutlined, ClearOutlined, LeftOutlined, RightOutlined} from '@ant-design/icons';
-import {useNavigate} from 'react-router';
+import {Steps, Button, Flex, Card, message, Layout, Typography, Tag} from 'antd';
+import {CheckCircleOutlined, ClearOutlined, LeftOutlined, RightOutlined, HomeOutlined} from '@ant-design/icons';
+import {useNavigate, useSearchParams} from 'react-router';
 import {fetchTables, type TableInfo, type FileType} from '@/shared/api/tablesApi';
 import type {UploadStatus, FileSelection} from './types';
 import {FILE_STEP_CONFIGS, buildQueryParams} from './types';
 import FileStepContent from './components/FileStepContent';
 import OstatkiStepContent from './components/OstatkiStepContent';
+import {EQUIPMENT_LABELS, isEquipmentType, type EquipmentType} from '@/shared/lib/equipment';
+import {colors} from '@/shared/lib/theme';
+
+const {Header, Content} = Layout;
+const {Text} = Typography;
 
 const INITIAL_STATUSES: Record<FileType, UploadStatus> = {
     'ZVZ': 'idle',
@@ -30,6 +35,17 @@ const INITIAL_SELECTIONS: Record<FileType, FileSelection | null> = {
 
 const UploadingPage = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const equipmentParam = searchParams.get('eq');
+    const equipmentType: EquipmentType | null = isEquipmentType(equipmentParam) ? equipmentParam : null;
+
+    // Без выбранного оборудования вернёмся на главную — UI выбора фильтров зависит от типа.
+    useEffect(() => {
+        if (!equipmentType) {
+            navigate('/', {replace: true});
+        }
+    }, [equipmentType, navigate]);
+
     const [currentStep, setCurrentStep] = useState(0);
     const [fileStatuses, setFileStatuses] = useState<Record<FileType, UploadStatus>>({...INITIAL_STATUSES});
     const [savedSelections, setSavedSelections] = useState<Record<FileType, FileSelection | null>>({...INITIAL_SELECTIONS});
@@ -169,6 +185,7 @@ const UploadingPage = () => {
                     onManualSaveSuccess={handleOstatkiManualSave}
                     onTablesRefresh={refreshTables}
                     manualStatus={ostatkiManualStatus}
+                    equipmentType={equipmentType ?? undefined}
                 />
             );
         }
@@ -182,15 +199,56 @@ const UploadingPage = () => {
                 existingTables={existingTables}
                 isLoadingTables={isLoadingTables}
                 onSaveSuccess={handleSaveSuccess}
+                equipmentType={equipmentType ?? undefined}
             />
         );
     };
 
+    if (!equipmentType) {
+        // useEffect выше уже редиректит на главную — рендерим заглушку чтобы избежать ошибок.
+        return null;
+    }
+
     return (
-        <main style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
-            <Flex justify="space-between" align="center" style={{marginBottom: 24}}>
-                <h1 style={{margin: 0, fontSize: '1.5rem', color: '#002c8c'}}>Загрузка данных для анализа</h1>
-                <Flex gap="medium">
+        <Layout style={{minHeight: '100vh'}}>
+            <Header
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingInline: 32,
+                    background: colors.headerBg,
+                    borderBottom: `3px solid ${colors.accent}`,
+                    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+                }}
+            >
+                <Flex align="center" gap={16}>
+                    <Button
+                        type="text"
+                        icon={<HomeOutlined/>}
+                        onClick={() => navigate('/')}
+                    >
+                        На главную
+                    </Button>
+                    <span style={{display: 'inline-block', width: 1, height: 24, background: colors.border}} aria-hidden/>
+                    <Text style={{color: colors.text, fontSize: 16, fontWeight: 600}}>
+                        Загрузка данных
+                    </Text>
+                    <Tag
+                        style={{
+                            margin: 0,
+                            padding: '2px 10px',
+                            fontSize: 13,
+                            border: `1px solid ${colors.primary}`,
+                            background: 'rgba(0, 154, 68, 0.10)',
+                            color: colors.primary,
+                            fontWeight: 500,
+                        }}
+                    >
+                        {EQUIPMENT_LABELS[equipmentType]}
+                    </Tag>
+                </Flex>
+                <Flex gap={8}>
                     <Button icon={<ClearOutlined/>} onClick={resetAll}>
                         Очистить
                     </Button>
@@ -203,8 +261,9 @@ const UploadingPage = () => {
                         Анализ
                     </Button>
                 </Flex>
-            </Flex>
+            </Header>
 
+            <Content style={{padding: '32px 24px', maxWidth: 900, margin: '0 auto', width: '100%'}}>
             <Steps
                 current={currentStep}
                 items={stepsItems}
@@ -250,7 +309,8 @@ const UploadingPage = () => {
                     )}
                 </Flex>
             </Flex>
-        </main>
+            </Content>
+        </Layout>
     );
 };
 

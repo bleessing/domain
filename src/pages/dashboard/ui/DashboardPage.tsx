@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { Col, Row, Radio, Spin, message } from 'antd';
-import { useSearchParams } from 'react-router';
+import { Col, Row, Radio, Spin, message, Button } from 'antd';
+import { HomeOutlined } from '@ant-design/icons';
+import { useSearchParams, useNavigate } from 'react-router';
 import { useGetFilterOptionsQuery } from '@/entities/filter/api/filterApiSlice';
 
 // Хуки данных импортируются напрямую из model-файлов,
@@ -32,6 +33,7 @@ const ChartFallback = (
 
 function DashboardPage() {
     const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
 
     // Получаем названия таблиц из URL
     const zvz_table = searchParams.get('zvz_table') || '';
@@ -145,10 +147,16 @@ function DashboardPage() {
                         borderRadius: '8px',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '12px'
+                        gap: '12px',
+                        justifyContent: 'space-between',
                     }}>
-                        <span style={{ fontWeight: 500, color: '#000' }}>Экспорт данных:</span>
-                        <ExportButtons filters={effectiveFilters} />
+                        <div style={{display: 'flex', alignItems: 'center', gap: 12}}>
+                            <Button icon={<HomeOutlined/>} onClick={() => navigate('/')}>
+                                На главную
+                            </Button>
+                            <span style={{ fontWeight: 500, color: '#000' }}>Экспорт данных:</span>
+                            <ExportButtons filters={effectiveFilters} />
+                        </div>
                     </div>
                 </Col>
             </Row>

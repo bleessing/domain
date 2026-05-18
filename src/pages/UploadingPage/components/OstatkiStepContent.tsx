@@ -22,6 +22,8 @@ interface OstatkiStepContentProps {
     /** чтобы только что созданная таблица появилась в селектах «начало»/«конец». */
     onTablesRefresh?: () => void | Promise<void>;
     manualStatus: UploadStatus;
+    /** Выбранный тип оборудования (PIPES/PUMPS/RODS) — передаётся в backend для контекста загрузки. */
+    equipmentType?: 'PIPES' | 'PUMPS' | 'RODS';
 }
 
 const MONTHS = [
@@ -39,6 +41,7 @@ const OstatkiStepContent = ({
     onManualSaveSuccess,
     onTablesRefresh,
     manualStatus,
+    equipmentType,
 }: OstatkiStepContentProps) => {
     const [activeTab, setActiveTab] = useState<'upload' | 'existing' | 'ostatki'>(() =>
         savedSelection ? savedSelection.type as 'upload' | 'existing' : 'existing'
@@ -102,6 +105,9 @@ const OstatkiStepContent = ({
         formData.append('table_name', tableName);
         formData.append('sheet_name', selectedSheet as string);
         formData.append('month', selectedMonth as string);
+        if (equipmentType) {
+            formData.append('equipment_type', equipmentType);
+        }
         if (columnMappingJson) {
             formData.append('column_mapping', columnMappingJson);
         }

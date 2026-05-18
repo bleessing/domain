@@ -32,7 +32,7 @@ export interface FileStepConfig {
 }
 
 export const FILE_STEP_CONFIGS: FileStepConfig[] = [
-    {fileType: 'RSS', label: 'RSS + ДВ', required: true},
+    {fileType: 'RSS', label: 'РСС + ДВ', required: true},
     {fileType: 'ZVZ', label: 'Завоз/Вывоз', required: true},
     {fileType: 'OG', label: 'Отгрузка', required: true},
     {fileType: 'VG', label: 'Поступление', required: true},

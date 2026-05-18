@@ -17,6 +17,8 @@ interface FileStepContentProps {
     existingTables: TableInfo[];
     isLoadingTables: boolean;
     onSaveSuccess: (fileType: FileType, selection: FileSelection) => void;
+    /** Выбранный тип оборудования (PIPES/PUMPS/RODS) — передаётся в backend для контекста загрузки. */
+    equipmentType?: 'PIPES' | 'PUMPS' | 'RODS';
 }
 
 const FileStepContent = ({
@@ -26,6 +28,7 @@ const FileStepContent = ({
     existingTables,
     isLoadingTables,
     onSaveSuccess,
+    equipmentType,
 }: FileStepContentProps) => {
     const [activeTab, setActiveTab] = useState<'upload' | 'existing'>(() =>
         savedSelection ? savedSelection.type as 'upload' | 'existing' : 'upload'
@@ -81,6 +84,9 @@ const FileStepContent = ({
         formData.append('table_type', fileType);
         formData.append('table_name', tableName);
         formData.append('sheet_name', selectedSheet as string);
+        if (equipmentType) {
+            formData.append('equipment_type', equipmentType);
+        }
         if (columnMappingJson) {
             formData.append('column_mapping', columnMappingJson);
         }
@@ -219,7 +225,7 @@ const FileStepContent = ({
             children: (
                 <>
                     {isRssStep && (
-                        <label style={{display: 'block', marginBottom: 8, fontWeight: 500}}>Файл RSS</label>
+                        <label style={{display: 'block', marginBottom: 8, fontWeight: 500}}>Файл РСС</label>
                     )}
                     <Upload.Dragger {...uploadProps}>
                         <p className="ant-upload-drag-icon"><InboxOutlined/></p>
