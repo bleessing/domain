@@ -16,7 +16,10 @@ export interface FilterParams {
     rss_table: string;
     og_table?: string;
     vg_table?: string;
-    ost_table: string;
+    /** Таблица остатков на начало периода */
+    ost_table_start?: string;
+    /** Таблица остатков на конец периода */
+    ost_table_end?: string;
     sources_mode?: string;
     targets_mode?: string;
     diameters_mode?: string;

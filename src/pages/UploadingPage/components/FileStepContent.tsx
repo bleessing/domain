@@ -46,6 +46,8 @@ const FileStepContent = ({
         setErrorMessage,
         missingCombinations,
         setMissingCombinations,
+        dictionaryType,
+        setDictionaryType,
         selectedExistingTable,
         setSelectedExistingTable,
         uploadProps,
@@ -98,6 +100,7 @@ const FileStepContent = ({
                 const detail = errorData?.detail;
                 setErrorMessage(detail?.message || 'Ошибка валидации таблиц');
                 setMissingCombinations(detail?.missing_combinations || []);
+                setDictionaryType(detail?.dictionary_type || 'RSS');
                 setErrorModalOpen(true);
                 return;
             }
@@ -272,6 +275,7 @@ const FileStepContent = ({
                 onClose={() => setErrorModalOpen(false)}
                 errorMessage={errorMessage}
                 missingCombinations={missingCombinations}
+                dictionaryType={dictionaryType}
             />
         </>
     );

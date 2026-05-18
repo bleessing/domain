@@ -3,7 +3,8 @@ import type { FilterParams } from '@/entities/filter';
 import { buildFilterQuery, type FilterQueryOptions } from '@/shared/lib/queryBuilder';
 
 const BALANCE_EXPORT_OPTIONS: FilterQueryOptions = {
-    ostTableKey: 'leftovers_table',
+    // Бэк /export/balance принимает обе таблицы: ost_table_start и ost_table_end
+    ostTableMode: 'both',
     modes: ['states_mode', 'types_mode'],
     arrays: ['states', 'types'],
 };

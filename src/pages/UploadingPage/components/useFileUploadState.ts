@@ -15,6 +15,7 @@ export function useFileUploadState(savedSelection: FileSelection | null) {
     const [errorModalOpen, setErrorModalOpen] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
     const [missingCombinations, setMissingCombinations] = useState<Record<string, string>[]>([]);
+    const [dictionaryType, setDictionaryType] = useState<string>('RSS');
 
     const [selectedExistingTable, setSelectedExistingTable] = useState<string | undefined>(
         savedSelection?.existingTableName
@@ -70,6 +71,8 @@ export function useFileUploadState(savedSelection: FileSelection | null) {
         setErrorMessage,
         missingCombinations,
         setMissingCombinations,
+        dictionaryType,
+        setDictionaryType,
         selectedExistingTable,
         setSelectedExistingTable,
         uploadProps,

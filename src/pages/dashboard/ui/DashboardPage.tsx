@@ -38,7 +38,11 @@ function DashboardPage() {
     const rss_table = searchParams.get('rss_table') || '';
     const og_table = searchParams.get('og_table') || '';
     const vg_table = searchParams.get('vg_table') || '';
-    const leftovers_table = searchParams.get('leftovers_table') || '';
+    // Таблицы остатков: на начало и на конец периода. Fallback на старый leftovers_table
+    // (он трактуется как «конец», т.к. ранее использовался для всех графиков как текущая картина).
+    const leftovers_table_legacy = searchParams.get('leftovers_table') || '';
+    const ost_table_start = searchParams.get('leftovers_table_start') || '';
+    const ost_table_end = searchParams.get('leftovers_table_end') || leftovers_table_legacy;
 
     const [dynamicsChartType, setDynamicsChartType] = useState<'bar' | 'line'>('bar');
 
@@ -47,7 +51,8 @@ function DashboardPage() {
         rss_table,
         og_table,
         vg_table,
-        ost_table: leftovers_table,
+        ost_table_start: ost_table_start || undefined,
+        ost_table_end: ost_table_end || undefined,
         sources_mode: 'in',
         targets_mode: 'in',
         diameters_mode: 'in',

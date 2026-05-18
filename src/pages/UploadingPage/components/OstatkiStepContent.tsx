@@ -55,10 +55,18 @@ const OstatkiStepContent = ({
         setErrorMessage,
         missingCombinations,
         setMissingCombinations,
-        selectedExistingTable,
-        setSelectedExistingTable,
+        dictionaryType,
+        setDictionaryType,
         uploadProps,
     } = useFileUploadState(savedSelection);
+
+    // Две независимые таблицы остатков для existing-вкладки: на начало и на конец периода.
+    const [selectedExistingTableStart, setSelectedExistingTableStart] = useState<string | undefined>(
+        savedSelection?.existingTableNameStart
+    );
+    const [selectedExistingTableEnd, setSelectedExistingTableEnd] = useState<string | undefined>(
+        savedSelection?.existingTableNameEnd ?? savedSelection?.existingTableName
+    );
 
     const [selectedMonth, setSelectedMonth] = useState<string | undefined>();
 
@@ -110,6 +118,7 @@ const OstatkiStepContent = ({
                 const detail = errorData?.detail;
                 setErrorMessage(detail?.message || 'Ошибка валидации таблиц');
                 setMissingCombinations(detail?.missing_combinations || []);
+                setDictionaryType(detail?.dictionary_type || 'RSS');
                 setErrorModalOpen(true);
                 return;
             }
@@ -208,14 +217,17 @@ const OstatkiStepContent = ({
     };
 
     const handleSaveExisting = () => {
-        if (!selectedExistingTable) {
-             void message.warning('Пожалуйста, выберите таблицу');
+        if (!selectedExistingTableStart && !selectedExistingTableEnd) {
+            void message.warning('Выберите хотя бы одну таблицу остатков (на начало или на конец периода)');
             return;
         }
 
         onExistingSaveSuccess('Остатки', {
             type: 'existing',
-            existingTableName: selectedExistingTable,
+            existingTableNameStart: selectedExistingTableStart,
+            existingTableNameEnd: selectedExistingTableEnd,
+            // existingTableName оставляем для обратной совместимости с DV-шагом и пр.
+            existingTableName: selectedExistingTableEnd ?? selectedExistingTableStart,
         });
 
         void message.success('Остатки успешно настроены');
@@ -288,13 +300,32 @@ const OstatkiStepContent = ({
             children: (
                 <>
                     <div>
-                        <label style={{display: 'block', marginBottom: 8}}>Доступные таблицы</label>
+                        <label style={{display: 'block', marginBottom: 8}}>Остатки на начало периода</label>
                         <Select
-                            placeholder={isLoadingTables ? 'Загрузка...' : 'Выберите таблицу'}
-                            value={selectedExistingTable}
-                            onChange={setSelectedExistingTable}
+                            placeholder={isLoadingTables ? 'Загрузка...' : 'Выберите таблицу остатков на начало'}
+                            value={selectedExistingTableStart}
+                            onChange={setSelectedExistingTableStart}
                             loading={isLoadingTables}
                             disabled={isLoadingTables}
+                            allowClear
+                            options={filteredTables.map(t => ({value: t.table_name, label: t.table_name}))}
+                            style={{width: '100%'}}
+                            notFoundContent={
+                                isLoadingTables ? 'Загрузка...' :
+                                filteredTables.length === 0 ? 'Нет доступных таблиц типа "Остатки"' : null
+                            }
+                        />
+                    </div>
+
+                    <div style={{marginTop: 16}}>
+                        <label style={{display: 'block', marginBottom: 8}}>Остатки на конец периода</label>
+                        <Select
+                            placeholder={isLoadingTables ? 'Загрузка...' : 'Выберите таблицу остатков на конец'}
+                            value={selectedExistingTableEnd}
+                            onChange={setSelectedExistingTableEnd}
+                            loading={isLoadingTables}
+                            disabled={isLoadingTables}
+                            allowClear
                             options={filteredTables.map(t => ({value: t.table_name, label: t.table_name}))}
                             style={{width: '100%'}}
                             notFoundContent={
@@ -431,6 +462,7 @@ const OstatkiStepContent = ({
                 onClose={() => setErrorModalOpen(false)}
                 errorMessage={errorMessage}
                 missingCombinations={missingCombinations}
+                dictionaryType={dictionaryType}
             />
         </>
     );

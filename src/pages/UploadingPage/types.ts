@@ -11,6 +11,10 @@ export interface FileSelection {
     selectedSheet?: string;
     tableName?: string;
     existingTableName?: string;
+    /** Только для Остатков: имя существующей таблицы остатков на начало периода */
+    existingTableNameStart?: string;
+    /** Только для Остатков: имя существующей таблицы остатков на конец периода */
+    existingTableNameEnd?: string;
     dvFile?: File;
     dvTableName?: string;
 }
@@ -93,15 +97,26 @@ export function buildQueryParams(
         }
     }
 
-    let leftoversTable = '';
+    // Остатки: для шага "existing" пользователь выбирает две таблицы (на начало и на конец).
+    // Для "upload" и "manual" остаётся одна таблица — она трактуется как «на конец периода».
+    let leftoversStart = '';
+    let leftoversEnd = '';
     if (ostatkiManualTableName) {
-        leftoversTable = ostatkiManualTableName;
+        leftoversEnd = ostatkiManualTableName;
     } else if (fileStatuses['Остатки'] === 'success' && savedSelections['Остатки']) {
         const sel = savedSelections['Остатки'];
-        leftoversTable = sel.type === 'upload' ? (sel.tableName || '') : (sel.existingTableName || '');
+        if (sel.type === 'upload') {
+            leftoversEnd = sel.tableName || '';
+        } else {
+            leftoversStart = sel.existingTableNameStart || '';
+            leftoversEnd = sel.existingTableNameEnd || sel.existingTableName || '';
+        }
     }
-    if (leftoversTable) {
-        queryParams.push(`leftovers_table=${leftoversTable}`);
+    if (leftoversStart) {
+        queryParams.push(`leftovers_table_start=${leftoversStart}`);
+    }
+    if (leftoversEnd) {
+        queryParams.push(`leftovers_table_end=${leftoversEnd}`);
     }
 
     return queryParams.join('&');

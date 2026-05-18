@@ -12,9 +12,10 @@ interface UploadErrorModalProps {
     onClose: () => void;
     errorMessage: string;
     missingCombinations: MissingCombination[];
+    dictionaryType?: string;
 }
 
-const UploadErrorModal = ({open, onClose, errorMessage, missingCombinations}: UploadErrorModalProps) => {
+const UploadErrorModal = ({open, onClose, errorMessage, missingCombinations, dictionaryType = 'RSS'}: UploadErrorModalProps) => {
     const [loadingRows, setLoadingRows] = useState<Record<number, boolean>>({});
     const [sentRows, setSentRows] = useState<Set<number>>(new Set());
 
@@ -23,7 +24,7 @@ const UploadErrorModal = ({open, onClose, errorMessage, missingCombinations}: Up
         void key;
         setLoadingRows(prev => ({...prev, [index]: true}));
         try {
-            const response = await fetch(`${API_BASE_URL}/dictionary/RSS`, {
+            const response = await fetch(`${API_BASE_URL}/dictionary/${dictionaryType}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
