@@ -55,6 +55,19 @@ export function useFileUploadState(savedSelection: FileSelection | null) {
         fileList: uploadedFile ? [{uid: '1', name: uploadedFile.name, status: 'done'}] : [],
     };
 
+    /**
+     * Сброс upload-вкладки в исходное состояние (без файла).
+     * Нужен после успешной загрузки, когда форму надо переиспользовать
+     * для следующего файла (например в шаге Остатки — на начало/на конец).
+     */
+    const resetUploadState = () => {
+        setUploadedFile(null);
+        setWorkbook(null);
+        setSheetNames([]);
+        setSelectedSheet('');
+        setTableName('');
+    };
+
     return {
         uploadedFile,
         workbook,
@@ -76,5 +89,6 @@ export function useFileUploadState(savedSelection: FileSelection | null) {
         selectedExistingTable,
         setSelectedExistingTable,
         uploadProps,
+        resetUploadState,
     };
 }

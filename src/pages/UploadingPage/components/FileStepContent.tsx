@@ -7,6 +7,7 @@ import {API_BASE_URL} from '@/shared/lib/constants';
 import type {UploadStatus, FileSelection} from '../types';
 import {getErrorMessage, getFileTypeLabel} from '../types';
 import UploadErrorModal from './UploadErrorModal';
+import ColumnMappingModal from './ColumnMappingModal';
 import {useFileUploadState} from './useFileUploadState';
 
 interface FileStepContentProps {
@@ -57,8 +58,90 @@ const FileStepContent = ({
     const [dvFile, setDvFile] = useState<File | null>(savedSelection?.dvFile || null);
     const isRssStep = fileType === 'RSS';
 
+    // Состояние модалки маппинга колонок (422 / MISSING_COLUMNS).
+    const [mappingModalOpen, setMappingModalOpen] = useState(false);
+    const [missingColumns, setMissingColumns] = useState<string[]>([]);
+    const [availableColumnsInFile, setAvailableColumnsInFile] = useState<string[]>([]);
+    const [mappingTableType, setMappingTableType] = useState<string>('');
+
     const filteredTables = filterTablesByType(existingTables, fileType);
     const isSaved = fileStatus === 'success';
+
+    /**
+     * Один upload-запрос. Если columnMappingJson передан — добавляется в FormData.
+     * Возвращает true если успешно (и стейт обновлён), false если нужно показать
+     * модалку маппинга, иначе бросает исключение.
+     */
+    const performUpload = async (columnMappingJson?: string): Promise<boolean> => {
+        const formData = new FormData();
+        formData.append('files', uploadedFile as File);
+        if (isRssStep && dvFile) {
+            formData.append('files', dvFile);
+        }
+        formData.append('table_type', fileType);
+        formData.append('table_name', tableName);
+        formData.append('sheet_name', selectedSheet as string);
+        if (columnMappingJson) {
+            formData.append('column_mapping', columnMappingJson);
+        }
+
+        const response = await fetch(`${API_BASE_URL}/upload/files`, {
+            method: 'POST',
+            headers: {'ngrok-skip-browser-warning': 'false'},
+            body: formData,
+        });
+
+        if (response.status === 422) {
+            const errorData = await response.json();
+            const detail = errorData?.detail;
+            if (detail?.code === 'MISSING_COLUMNS') {
+                setMissingColumns(detail.missing || []);
+                setAvailableColumnsInFile(detail.available_in_file || []);
+                setMappingTableType(detail.table_type || fileType);
+                setMappingModalOpen(true);
+                return false;
+            }
+            // Старая ветка: ошибки словаря (RSS).
+            setErrorMessage(detail?.message || 'Ошибка валидации таблиц');
+            setMissingCombinations(detail?.missing_combinations || []);
+            setDictionaryType(detail?.dictionary_type || 'RSS');
+            setErrorModalOpen(true);
+            return false;
+        }
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Ошибка ответа:', errorText);
+            // Бэк отдаёт ошибки в формате {"detail": "..."} (или {"detail": {...}}).
+            // Показываем именно detail — он информативен (например про дубли колонок).
+            let detailText = `${response.status} ${response.statusText}`;
+            try {
+                const parsed = JSON.parse(errorText);
+                if (typeof parsed?.detail === 'string') {
+                    detailText = parsed.detail;
+                } else if (parsed?.detail?.message) {
+                    detailText = parsed.detail.message;
+                }
+            } catch { /* errorText не JSON — оставляем status text */ }
+            message.error(`Ошибка при загрузке: ${detailText}`);
+            return false;
+        }
+
+        const responseData = await response.json();
+
+        onSaveSuccess(fileType, {
+            type: 'upload',
+            file: uploadedFile as File,
+            workbook: workbook || undefined,
+            sheetNames,
+            selectedSheet,
+            tableName,
+            dvFile: isRssStep ? dvFile || undefined : undefined,
+            dvTableName: isRssStep ? responseData?.dv_table_name : undefined,
+        });
+
+        message.success(`${getFileTypeLabel(fileType)} успешно загружен на сервер`);
+        return true;
+    };
 
     const handleSaveUpload = async () => {
         if (!uploadedFile) {
@@ -80,52 +163,19 @@ const FileStepContent = ({
 
         setIsUploading(true);
         try {
-            const formData = new FormData();
-            formData.append('files', uploadedFile);
-            if (isRssStep && dvFile) {
-                formData.append('files', dvFile);
-            }
-            formData.append('table_type', fileType);
-            formData.append('table_name', tableName);
-            formData.append('sheet_name', selectedSheet);
+            await performUpload();
+        } catch (error: unknown) {
+            message.error(`Ошибка при загрузке файла: ${getErrorMessage(error)}`);
+        } finally {
+            setIsUploading(false);
+        }
+    };
 
-            const response = await fetch(`${API_BASE_URL}/upload/files`, {
-                method: 'POST',
-                headers: {'ngrok-skip-browser-warning': 'false'},
-                body: formData,
-            });
-
-            if (response.status === 422) {
-                const errorData = await response.json();
-                const detail = errorData?.detail;
-                setErrorMessage(detail?.message || 'Ошибка валидации таблиц');
-                setMissingCombinations(detail?.missing_combinations || []);
-                setDictionaryType(detail?.dictionary_type || 'RSS');
-                setErrorModalOpen(true);
-                return;
-            }
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Ошибка ответа:', errorText);
-                message.error(`Ошибка при загрузке: ${response.status} ${response.statusText}`);
-                return;
-            }
-
-
-            const responseData = await response.json();
-
-            onSaveSuccess(fileType, {
-                type: 'upload',
-                file: uploadedFile,
-                workbook: workbook || undefined,
-                sheetNames,
-                selectedSheet,
-                tableName,
-                dvFile: isRssStep ? dvFile || undefined : undefined,
-                dvTableName: isRssStep ? responseData?.dv_table_name : undefined,
-            });
-
-            message.success(`${getFileTypeLabel(fileType)} успешно загружен на сервер`);
+    const handleMappingSubmit = async (mapping: Record<string, string>) => {
+        setIsUploading(true);
+        try {
+            const ok = await performUpload(JSON.stringify(mapping));
+            if (ok) setMappingModalOpen(false);
         } catch (error: unknown) {
             message.error(`Ошибка при загрузке файла: ${getErrorMessage(error)}`);
         } finally {
@@ -276,6 +326,15 @@ const FileStepContent = ({
                 errorMessage={errorMessage}
                 missingCombinations={missingCombinations}
                 dictionaryType={dictionaryType}
+            />
+            <ColumnMappingModal
+                open={mappingModalOpen}
+                onClose={() => setMappingModalOpen(false)}
+                missing={missingColumns}
+                availableInFile={availableColumnsInFile}
+                tableType={mappingTableType}
+                onSubmit={handleMappingSubmit}
+                isSubmitting={isUploading}
             />
         </>
     );

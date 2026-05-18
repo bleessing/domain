@@ -47,6 +47,18 @@ const UploadingPage = () => {
             .finally(() => setIsLoadingTables(false));
     }, []);
 
+    const refreshTables = async () => {
+        setIsLoadingTables(true);
+        try {
+            const tables = await fetchTables();
+            setExistingTables(tables);
+        } catch {
+            void message.error('Не удалось обновить список таблиц');
+        } finally {
+            setIsLoadingTables(false);
+        }
+    };
+
     const handleSaveSuccess = (fileType: FileType, selection: FileSelection) => {
         setFileStatuses(prev => {
             const next = {...prev, [fileType]: 'success' as UploadStatus};
@@ -155,6 +167,7 @@ const UploadingPage = () => {
                     savedSelections={savedSelections}
                     onExistingSaveSuccess={handleSaveSuccess}
                     onManualSaveSuccess={handleOstatkiManualSave}
+                    onTablesRefresh={refreshTables}
                     manualStatus={ostatkiManualStatus}
                 />
             );

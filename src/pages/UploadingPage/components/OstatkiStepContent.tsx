@@ -4,8 +4,9 @@ import {InboxOutlined, UploadOutlined, DatabaseOutlined, CheckCircleOutlined, De
 import dayjs, {type Dayjs} from 'dayjs';
 import {filterTablesByType, type TableInfo, type FileType} from '@/shared/api/tablesApi';
 import {API_BASE_URL} from '@/shared/lib/constants';
-import {type UploadStatus, type FileSelection, type OstatokItem, getFileTypeLabel, getErrorMessage} from '../types';
+import {type UploadStatus, type FileSelection, type OstatokItem, getErrorMessage} from '../types';
 import UploadErrorModal from './UploadErrorModal';
+import ColumnMappingModal from './ColumnMappingModal';
 import {useFileUploadState} from './useFileUploadState';
 
 interface OstatkiStepContentProps {
@@ -17,6 +18,9 @@ interface OstatkiStepContentProps {
     savedSelections: Record<FileType, FileSelection | null>;
     onExistingSaveSuccess: (fileType: FileType, selection: FileSelection) => void;
     onManualSaveSuccess: (tableName: string) => void;
+    /** Обновить список существующих таблиц с бэка. Вызывается после успешного upload, */
+    /** чтобы только что созданная таблица появилась в селектах «начало»/«конец». */
+    onTablesRefresh?: () => void | Promise<void>;
     manualStatus: UploadStatus;
 }
 
@@ -33,6 +37,7 @@ const OstatkiStepContent = ({
     isLoadingTables,
     onExistingSaveSuccess,
     onManualSaveSuccess,
+    onTablesRefresh,
     manualStatus,
 }: OstatkiStepContentProps) => {
     const [activeTab, setActiveTab] = useState<'upload' | 'existing' | 'ostatki'>(() =>
@@ -41,7 +46,6 @@ const OstatkiStepContent = ({
 
     const {
         uploadedFile,
-        workbook,
         sheetNames,
         selectedSheet,
         setSelectedSheet,
@@ -58,6 +62,7 @@ const OstatkiStepContent = ({
         dictionaryType,
         setDictionaryType,
         uploadProps,
+        resetUploadState,
     } = useFileUploadState(savedSelection);
 
     // Две независимые таблицы остатков для existing-вкладки: на начало и на конец периода.
@@ -70,6 +75,12 @@ const OstatkiStepContent = ({
 
     const [selectedMonth, setSelectedMonth] = useState<string | undefined>();
 
+    // Состояние модалки маппинга колонок (422 / MISSING_COLUMNS).
+    const [mappingModalOpen, setMappingModalOpen] = useState(false);
+    const [missingColumns, setMissingColumns] = useState<string[]>([]);
+    const [availableColumnsInFile, setAvailableColumnsInFile] = useState<string[]>([]);
+    const [mappingTableType, setMappingTableType] = useState<string>('');
+
     // Manual ostatki state
     const [selectedSostoyanie, setSelectedSostoyanie] = useState<string | undefined>();
     const [ostatkiValue, setOstatkiValue] = useState<number | null>(null);
@@ -79,6 +90,73 @@ const OstatkiStepContent = ({
     const filteredTables = filterTablesByType(existingTables, 'Остатки');
     const isSaved = fileStatus === 'success';
     const isManualSaved = manualStatus === 'success';
+
+    /**
+     * Один upload-запрос. Если columnMappingJson передан — добавляется в FormData.
+     * Возвращает true при успехе (стейт обновлён), false если показана модалка/ошибка.
+     */
+    const performUpload = async (columnMappingJson?: string): Promise<boolean> => {
+        const formData = new FormData();
+        formData.append('files', uploadedFile as File);
+        formData.append('table_type', 'Остатки');
+        formData.append('table_name', tableName);
+        formData.append('sheet_name', selectedSheet as string);
+        formData.append('month', selectedMonth as string);
+        if (columnMappingJson) {
+            formData.append('column_mapping', columnMappingJson);
+        }
+
+        const response = await fetch(`${API_BASE_URL}/upload/files`, {
+            method: 'POST',
+            headers: {'ngrok-skip-browser-warning': 'false'},
+            body: formData,
+        });
+
+        if (response.status === 422) {
+            const errorData = await response.json();
+            const detail = errorData?.detail;
+            if (detail?.code === 'MISSING_COLUMNS') {
+                setMissingColumns(detail.missing || []);
+                setAvailableColumnsInFile(detail.available_in_file || []);
+                setMappingTableType(detail.table_type || 'Остатки');
+                setMappingModalOpen(true);
+                return false;
+            }
+            setErrorMessage(detail?.message || 'Ошибка валидации таблиц');
+            setMissingCombinations(detail?.missing_combinations || []);
+            setDictionaryType(detail?.dictionary_type || 'RSS');
+            setErrorModalOpen(true);
+            return false;
+        }
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Ошибка ответа:', errorText);
+            let detailText = `${response.status} ${response.statusText}`;
+            try {
+                const parsed = JSON.parse(errorText);
+                if (typeof parsed?.detail === 'string') {
+                    detailText = parsed.detail;
+                } else if (parsed?.detail?.message) {
+                    detailText = parsed.detail.message;
+                }
+            } catch { /* errorText не JSON — оставляем status text */ }
+            message.error(`Ошибка при загрузке: ${detailText}`);
+            return false;
+        }
+
+        // Для Остатков upload-вкладка — лишь «загрузить таблицу в БД».
+        // Шаг считается успешным только когда пользователь на вкладке
+        // «Использовать существующую» выберет таблицы на начало и/или конец.
+        // Поэтому здесь НЕ помечаем fileStatus, а только обновляем список
+        // и сбрасываем форму, чтобы можно было сразу загрузить следующий файл.
+        message.success(`Таблица «${tableName}» загружена. Выберите её на вкладке «Использовать существующую».`);
+        resetUploadState();
+        setSelectedMonth(undefined);
+        if (onTablesRefresh) {
+            await onTablesRefresh();
+        }
+        return true;
+    };
 
     const handleSaveUpload = async () => {
         if (!uploadedFile) {
@@ -100,45 +178,19 @@ const OstatkiStepContent = ({
 
         setIsUploading(true);
         try {
-            const formData = new FormData();
-            formData.append('files', uploadedFile);
-            formData.append('table_type', 'Остатки');
-            formData.append('table_name', tableName);
-            formData.append('sheet_name', selectedSheet);
-            formData.append('month', selectedMonth);
+            await performUpload();
+        } catch (error: unknown) {
+            message.error(`Ошибка при загрузке файла: ${getErrorMessage(error)}`);
+        } finally {
+            setIsUploading(false);
+        }
+    };
 
-            const response = await fetch(`${API_BASE_URL}/upload/files`, {
-                method: 'POST',
-                headers: {'ngrok-skip-browser-warning': 'false'},
-                body: formData,
-            });
-
-            if (response.status === 422) {
-                const errorData = await response.json();
-                const detail = errorData?.detail;
-                setErrorMessage(detail?.message || 'Ошибка валидации таблиц');
-                setMissingCombinations(detail?.missing_combinations || []);
-                setDictionaryType(detail?.dictionary_type || 'RSS');
-                setErrorModalOpen(true);
-                return;
-            }
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Ошибка ответа:', errorText);
-                message.error(`Ошибка при загрузке: ${response.status} ${response.statusText}`);
-                return;
-            }
-
-            onExistingSaveSuccess('Остатки', {
-                type: 'upload',
-                file: uploadedFile,
-                workbook: workbook || undefined,
-                sheetNames,
-                selectedSheet,
-                tableName,
-            });
-
-            message.success(`${getFileTypeLabel('Остатки')} успешно загружен на сервер`);
+    const handleMappingSubmit = async (mapping: Record<string, string>) => {
+        setIsUploading(true);
+        try {
+            const ok = await performUpload(JSON.stringify(mapping));
+            if (ok) setMappingModalOpen(false);
         } catch (error: unknown) {
             message.error(`Ошибка при загрузке файла: ${getErrorMessage(error)}`);
         } finally {
@@ -284,12 +336,11 @@ const OstatkiStepContent = ({
                         type="primary"
                         onClick={handleSaveUpload}
                         block
-                        disabled={isSaved}
                         loading={isUploading}
-                        icon={isSaved ? <CheckCircleOutlined/> : undefined}
+                        icon={<UploadOutlined/>}
                         style={{marginTop: 16}}
                     >
-                        {isSaved ? 'Сохранено' : isUploading ? 'Загрузка...' : 'Сохранить выбор'}
+                        {isUploading ? 'Загрузка...' : 'Загрузить таблицу'}
                     </Button>
                 </>
             ),
@@ -463,6 +514,15 @@ const OstatkiStepContent = ({
                 errorMessage={errorMessage}
                 missingCombinations={missingCombinations}
                 dictionaryType={dictionaryType}
+            />
+            <ColumnMappingModal
+                open={mappingModalOpen}
+                onClose={() => setMappingModalOpen(false)}
+                missing={missingColumns}
+                availableInFile={availableColumnsInFile}
+                tableType={mappingTableType}
+                onSubmit={handleMappingSubmit}
+                isSubmitting={isUploading}
             />
         </>
     );
