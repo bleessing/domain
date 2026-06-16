@@ -134,6 +134,7 @@ const UploadingPage = () => {
             fileStatuses,
             savedSelections,
             ostatkiManualStatus === 'success' ? ostatkiManualTableName : undefined,
+            equipmentType ?? undefined,
         );
         void message.success('Переход к анализу...');
         setTimeout(() => navigate(`/main?${queryString}`), 500);

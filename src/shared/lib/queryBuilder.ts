@@ -89,5 +89,8 @@ export function buildFilterQuery(filters: FilterParams, options: FilterQueryOpti
     if (filters.date_from) add('date_from', filters.date_from);
     if (filters.date_to) add('date_to', filters.date_to);
 
+    // Тип оборудования — на бэке используется как явный override для detect_equipment_type.
+    if (filters.equipment_type) add('equipment_type', filters.equipment_type);
+
     return params.join('&');
 }

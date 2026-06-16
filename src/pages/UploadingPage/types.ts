@@ -32,7 +32,7 @@ export interface FileStepConfig {
 }
 
 export const FILE_STEP_CONFIGS: FileStepConfig[] = [
-    {fileType: 'RSS', label: 'РСС + ДВ', required: true},
+    {fileType: 'RSS', label: 'РСС (+ ДВ опц.)', required: true},
     {fileType: 'ZVZ', label: 'Завоз/Вывоз', required: true},
     {fileType: 'OG', label: 'Отгрузка', required: true},
     {fileType: 'VG', label: 'Поступление', required: true},
@@ -55,6 +55,8 @@ export function buildQueryParams(
     fileStatuses: Record<FileType, UploadStatus>,
     savedSelections: Record<FileType, FileSelection | null>,
     ostatkiManualTableName?: string,
+    /** Тип оборудования с главной страницы — кладётся в URL как `eq=...` */
+    equipmentType?: string,
 ): string {
     const queryParams: string[] = [];
     const tableNames: Record<string, string> = {};
@@ -116,6 +118,8 @@ export function buildQueryParams(
     }
     if (leftoversStart) add('leftovers_table_start', leftoversStart);
     if (leftoversEnd) add('leftovers_table_end', leftoversEnd);
+
+    if (equipmentType) add('eq', equipmentType);
 
     return queryParams.join('&');
 }

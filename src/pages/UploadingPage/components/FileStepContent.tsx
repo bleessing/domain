@@ -154,10 +154,6 @@ const FileStepContent = ({
             message.warning('Пожалуйста, загрузите файл');
             return;
         }
-        if (isRssStep && !dvFile) {
-            message.warning('Пожалуйста, загрузите файл ДВ');
-            return;
-        }
         if (!tableName.trim()) {
             message.warning('Пожалуйста, укажите название таблицы');
             return;
@@ -235,11 +231,13 @@ const FileStepContent = ({
 
                     {isRssStep && (
                         <div style={{marginTop: 16}}>
-                            <label style={{display: 'block', marginBottom: 8, fontWeight: 500}}>Файл ДВ</label>
+                            <label style={{display: 'block', marginBottom: 8, fontWeight: 500}}>
+                                Файл ДВ <span style={{color: '#999', fontWeight: 400}}>(опционально)</span>
+                            </label>
                             <Upload.Dragger {...dvUploadProps}>
                                 <p className="ant-upload-drag-icon"><InboxOutlined/></p>
                                 <p className="ant-upload-text">Кликните или перетащите файл ДВ</p>
-                                <p className="ant-upload-hint">Поддерживаемые форматы: .xlsx, .xls</p>
+                                <p className="ant-upload-hint">Без ДВ Код_ремонта_3 берётся из исходной колонки «Код ремонта». Форматы: .xlsx, .xls</p>
                             </Upload.Dragger>
                         </div>
                     )}

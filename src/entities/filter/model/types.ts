@@ -52,4 +52,10 @@ export interface FilterParams {
     date_from?: string | null;
     date_to?: string | null;
     is_leftovers?: boolean;
+    /**
+     * Тип оборудования, выбранный на главной странице (PIPES/PUMPS/RODS).
+     * Передаётся в каждый запрос расчётов — на бэке вытесняет heuristic-определение
+     * по имени RSS-таблицы.
+     */
+    equipment_type?: string;
 }

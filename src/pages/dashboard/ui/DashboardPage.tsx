@@ -40,6 +40,8 @@ function DashboardPage() {
     const rss_table = searchParams.get('rss_table') || '';
     const og_table = searchParams.get('og_table') || '';
     const vg_table = searchParams.get('vg_table') || '';
+    // Тип оборудования с главной страницы — попадёт в каждый API-запрос.
+    const equipment_type = searchParams.get('eq') || undefined;
     // Таблицы остатков: на начало и на конец периода. Fallback на старый leftovers_table
     // (он трактуется как «конец», т.к. ранее использовался для всех графиков как текущая картина).
     const leftovers_table_legacy = searchParams.get('leftovers_table') || '';
@@ -68,11 +70,18 @@ function DashboardPage() {
         date_from: null,
         date_to: null,
         is_leftovers: false,
+        equipment_type,
     });
 
     const { data: filterOptions, isLoading: isLoadingFilters, isError: isFilterError } =
         useGetFilterOptionsQuery(
-            { zvz_table, rss_table, og_table: og_table || undefined, vg_table: vg_table || undefined },
+            {
+                zvz_table,
+                rss_table,
+                og_table: og_table || undefined,
+                vg_table: vg_table || undefined,
+                equipment_type,
+            },
             { skip: !zvz_table || !rss_table },
         );
 
