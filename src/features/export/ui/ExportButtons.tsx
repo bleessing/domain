@@ -1,9 +1,9 @@
 import React from 'react';
-import {Button, Space} from 'antd';
-import {DownloadOutlined} from '@ant-design/icons';
+import {Group, Button} from '@mantine/core';
+import {IconDownload} from '@tabler/icons-react';
 
 import type {FilterParams} from '@/entities/filter';
-import {useExportData} from "@/features/export";
+import {useExportData} from '@/features/export';
 
 interface ExportButtonsProps {
     filters: FilterParams;
@@ -15,48 +15,31 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({filters}) => {
         handleExportSankey,
         handleExportBalance,
         handleExportDynamics,
-        handleExportBalanceReport
+        handleExportBalanceReport,
     } = useExportData();
 
+    const items: {label: string; key: string; onClick: () => void}[] = [
+        {label: 'Санкей', key: 'Санкей', onClick: () => handleExportSankey(filters)},
+        {label: 'Баланс', key: 'Баланс', onClick: () => handleExportBalance(filters)},
+        {label: 'Динамика', key: 'Динамика', onClick: () => handleExportDynamics(filters)},
+        {label: 'Баланс Отчет ЦТР', key: 'Баланс отчет', onClick: () => handleExportBalanceReport(filters)},
+    ];
+
     return (
-        <Space size="small" wrap>
-            <Button
-                type="default"
-                icon={<DownloadOutlined/>}
-                loading={isExporting === 'Санкей'}
-                onClick={() => handleExportSankey(filters)}
-                size="small"
-            >
-                Санкей
-            </Button>
-            <Button
-                type="default"
-                icon={<DownloadOutlined/>}
-                loading={isExporting === 'Баланс'}
-                onClick={() => handleExportBalance(filters)}
-                size="small"
-            >
-                Баланс
-            </Button>
-            <Button
-                type="default"
-                icon={<DownloadOutlined/>}
-                loading={isExporting === 'Динамика'}
-                onClick={() => handleExportDynamics(filters)}
-                size="small"
-            >
-                Динамика
-            </Button>
-            <Button
-                type="default"
-                icon={<DownloadOutlined/>}
-                loading={isExporting === 'Баланс отчет'}
-                onClick={() => handleExportBalanceReport(filters)}
-                size="small"
-            >
-                Баланс Отчет ЦТР
-            </Button>
-        </Space>
+        <Group gap="xs">
+            {items.map((item) => (
+                <Button
+                    key={item.key}
+                    variant="default"
+                    size="compact-sm"
+                    leftSection={<IconDownload size={14} />}
+                    loading={isExporting === item.key}
+                    onClick={item.onClick}
+                >
+                    {item.label}
+                </Button>
+            ))}
+        </Group>
     );
 };
 

@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { message } from 'antd';
+import { notifications } from '@mantine/notifications';
 import { exportSankeyData } from '@/entities/sankey';
 import { exportBalanceData, exportBalanceReportData } from '@/entities/balance';
 import { exportDynamicsData } from '@/entities/dynamics';
 import type { FilterParams } from '@/entities/filter';
+
+const notifyOk = (message: string) => notifications.show({ color: 'tatneft', message });
+const notifyErr = (message: string) => notifications.show({ color: 'brandRed', message });
 
 export const useExportData = () => {
     const [isExporting, setIsExporting] = useState<string | null>(null);
@@ -25,9 +28,9 @@ export const useExportData = () => {
             const blob = await exportSankeyData(filters);
             const timestamp = new Date().toISOString().split('T')[0];
             downloadFile(blob, `sankey_${timestamp}.xlsx`);
-            message.success('Sankey данные успешно экспортированы в Excel');
+            notifyOk('Sankey данные экспортированы в Excel');
         } catch (error) {
-            message.error('Ошибка при экспорте Sankey данных');
+            notifyErr('Ошибка при экспорте Sankey данных');
             console.error('Export Sankey error:', error);
         } finally {
             setIsExporting(null);
@@ -40,9 +43,9 @@ export const useExportData = () => {
             const blob = await exportBalanceData(filters);
             const timestamp = new Date().toISOString().split('T')[0];
             downloadFile(blob, `balance_${timestamp}.xlsx`);
-            message.success('Balance данные успешно экспортированы в Excel');
+            notifyOk('Balance данные экспортированы в Excel');
         } catch (error) {
-            message.error('Ошибка при экспорте Balance данных');
+            notifyErr('Ошибка при экспорте Balance данных');
             console.error('Export Balance error:', error);
         } finally {
             setIsExporting(null);
@@ -55,9 +58,9 @@ export const useExportData = () => {
             const blob = await exportDynamicsData(filters);
             const timestamp = new Date().toISOString().split('T')[0];
             downloadFile(blob, `dynamics_${timestamp}.xlsx`);
-            message.success('Dynamics данные успешно экспортированы в Excel');
+            notifyOk('Dynamics данные экспортированы в Excel');
         } catch (error) {
-            message.error('Ошибка при экспорте Dynamics данных');
+            notifyErr('Ошибка при экспорте Dynamics данных');
             console.error('Export Dynamics error:', error);
         } finally {
             setIsExporting(null);
@@ -70,9 +73,9 @@ export const useExportData = () => {
             const blob = await exportBalanceReportData(filters);
             const timestamp = new Date().toISOString().split('T')[0];
             downloadFile(blob, `balance_report_${timestamp}.xlsx`);
-            message.success('Отчет баланса успешно экспортирован в Excel');
+            notifyOk('Отчёт баланса экспортирован в Excel');
         } catch (error) {
-            message.error('Ошибка при экспорте отчета баланса');
+            notifyErr('Ошибка при экспорте отчёта баланса');
             console.error('Export Balance Report error:', error);
         } finally {
             setIsExporting(null);

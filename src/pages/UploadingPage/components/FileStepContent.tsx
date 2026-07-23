@@ -1,47 +1,56 @@
 import {useState} from 'react';
-import {Tabs, Upload, Input, Select, Button, message} from 'antd';
-import {InboxOutlined, UploadOutlined, DatabaseOutlined, CheckCircleOutlined} from '@ant-design/icons';
-import type {UploadProps} from 'antd';
-import {filterTablesByType, type TableInfo, type FileType} from '@/shared/api/tablesApi';
-import {API_BASE_URL} from '@/shared/lib/constants';
+import {Stack, Group, Text, Select, Button, Box} from '@mantine/core';
+import {Dropzone, MIME_TYPES} from '@mantine/dropzone';
+import {notifications} from '@mantine/notifications';
+import {IconUpload, IconFileSpreadsheet, IconX, IconCircleCheck} from '@tabler/icons-react';
+import {type FileType} from '@/shared/api/tablesApi';
+import {API_V2_BASE_URL} from '@/shared/lib/constants';
 import type {UploadStatus, FileSelection} from '../types';
 import {getErrorMessage, getFileTypeLabel} from '../types';
+import {nc} from '@/shared/lib/mantineTheme';
 import UploadErrorModal from './UploadErrorModal';
 import ColumnMappingModal from './ColumnMappingModal';
 import {useFileUploadState} from './useFileUploadState';
 
 interface FileStepContentProps {
     fileType: FileType;
+    tableType: string;
     fileStatus: UploadStatus;
     savedSelection: FileSelection | null;
-    existingTables: TableInfo[];
-    isLoadingTables: boolean;
     onSaveSuccess: (fileType: FileType, selection: FileSelection) => void;
-    /** Выбранный тип оборудования (PIPES/PUMPS/RODS) — передаётся в backend для контекста загрузки. */
     equipmentType?: 'PIPES' | 'PUMPS' | 'RODS';
+}
+
+const EXCEL_MIME = [MIME_TYPES.xlsx, MIME_TYPES.xls];
+
+function DropzoneBody({label}: {label: string}) {
+    return (
+        <Group justify="center" gap="md" mih={110} style={{pointerEvents: 'none'}}>
+            <Dropzone.Accept><IconUpload size={34} color={nc.green} /></Dropzone.Accept>
+            <Dropzone.Reject><IconX size={34} color={nc.red} /></Dropzone.Reject>
+            <Dropzone.Idle><IconFileSpreadsheet size={34} color={nc.dimmed} /></Dropzone.Idle>
+            <div>
+                <Text size="sm" c={nc.text}>{label}</Text>
+                <Text size="xs" c="dimmed">Форматы: .xlsx, .xls</Text>
+            </div>
+        </Group>
+    );
 }
 
 const FileStepContent = ({
     fileType,
+    tableType,
     fileStatus,
     savedSelection,
-    existingTables,
-    isLoadingTables,
     onSaveSuccess,
     equipmentType,
 }: FileStepContentProps) => {
-    const [activeTab, setActiveTab] = useState<'upload' | 'existing'>(() =>
-        savedSelection ? savedSelection.type as 'upload' | 'existing' : 'upload'
-    );
-
     const {
         uploadedFile,
         workbook,
         sheetNames,
         selectedSheet,
         setSelectedSheet,
-        tableName,
-        setTableName,
         isUploading,
         setIsUploading,
         errorModalOpen,
@@ -52,46 +61,37 @@ const FileStepContent = ({
         setMissingCombinations,
         dictionaryType,
         setDictionaryType,
-        selectedExistingTable,
-        setSelectedExistingTable,
-        uploadProps,
+        handleFile,
     } = useFileUploadState(savedSelection);
 
-    // DV file state (only used when fileType === 'RSS')
     const [dvFile, setDvFile] = useState<File | null>(savedSelection?.dvFile || null);
     const isRssStep = fileType === 'RSS';
 
-    // Состояние модалки маппинга колонок (422 / MISSING_COLUMNS).
     const [mappingModalOpen, setMappingModalOpen] = useState(false);
     const [missingColumns, setMissingColumns] = useState<string[]>([]);
     const [availableColumnsInFile, setAvailableColumnsInFile] = useState<string[]>([]);
     const [mappingTableType, setMappingTableType] = useState<string>('');
 
-    const filteredTables = filterTablesByType(existingTables, fileType);
     const isSaved = fileStatus === 'success';
 
-    /**
-     * Один upload-запрос. Если columnMappingJson передан — добавляется в FormData.
-     * Возвращает true если успешно (и стейт обновлён), false если нужно показать
-     * модалку маппинга, иначе бросает исключение.
-     */
     const performUpload = async (columnMappingJson?: string): Promise<boolean> => {
         const formData = new FormData();
         formData.append('files', uploadedFile as File);
         if (isRssStep && dvFile) {
             formData.append('files', dvFile);
         }
-        formData.append('table_type', fileType);
-        formData.append('table_name', tableName);
-        formData.append('sheet_name', selectedSheet as string);
+        formData.append('table_type', tableType);
         if (equipmentType) {
             formData.append('equipment_type', equipmentType);
+        }
+        if (selectedSheet) {
+            formData.append('sheet_name', selectedSheet);
         }
         if (columnMappingJson) {
             formData.append('column_mapping', columnMappingJson);
         }
 
-        const response = await fetch(`${API_BASE_URL}/upload/files`, {
+        const response = await fetch(`${API_V2_BASE_URL}/upload`, {
             method: 'POST',
             headers: {'ngrok-skip-browser-warning': 'false'},
             body: formData,
@@ -103,11 +103,10 @@ const FileStepContent = ({
             if (detail?.code === 'MISSING_COLUMNS') {
                 setMissingColumns(detail.missing || []);
                 setAvailableColumnsInFile(detail.available_in_file || []);
-                setMappingTableType(detail.table_type || fileType);
+                setMappingTableType(detail.table_type || tableType);
                 setMappingModalOpen(true);
                 return false;
             }
-            // Старая ветка: ошибки словаря (RSS).
             setErrorMessage(detail?.message || 'Ошибка валидации таблиц');
             setMissingCombinations(detail?.missing_combinations || []);
             setDictionaryType(detail?.dictionary_type || 'RSS');
@@ -117,8 +116,6 @@ const FileStepContent = ({
         if (!response.ok) {
             const errorText = await response.text();
             console.error('Ошибка ответа:', errorText);
-            // Бэк отдаёт ошибки в формате {"detail": "..."} (или {"detail": {...}}).
-            // Показываем именно detail — он информативен (например про дубли колонок).
             let detailText = `${response.status} ${response.statusText}`;
             try {
                 const parsed = JSON.parse(errorText);
@@ -128,11 +125,9 @@ const FileStepContent = ({
                     detailText = parsed.detail.message;
                 }
             } catch { /* errorText не JSON — оставляем status text */ }
-            message.error(`Ошибка при загрузке: ${detailText}`);
+            notifications.show({color: 'brandRed', message: `Ошибка при загрузке: ${detailText}`});
             return false;
         }
-
-        const responseData = await response.json();
 
         onSaveSuccess(fileType, {
             type: 'upload',
@@ -140,34 +135,23 @@ const FileStepContent = ({
             workbook: workbook || undefined,
             sheetNames,
             selectedSheet,
-            tableName,
             dvFile: isRssStep ? dvFile || undefined : undefined,
-            dvTableName: isRssStep ? responseData?.dv_table_name : undefined,
         });
 
-        message.success(`${getFileTypeLabel(fileType)} успешно загружен на сервер`);
+        notifications.show({color: 'tatneft', message: `${getFileTypeLabel(fileType)} загружен на сервер`});
         return true;
     };
 
     const handleSaveUpload = async () => {
         if (!uploadedFile) {
-            message.warning('Пожалуйста, загрузите файл');
+            notifications.show({color: 'yellow', message: 'Пожалуйста, загрузите файл'});
             return;
         }
-        if (!tableName.trim()) {
-            message.warning('Пожалуйста, укажите название таблицы');
-            return;
-        }
-        if (!selectedSheet) {
-            message.warning('Пожалуйста, выберите лист');
-            return;
-        }
-
         setIsUploading(true);
         try {
             await performUpload();
         } catch (error: unknown) {
-            message.error(`Ошибка при загрузке файла: ${getErrorMessage(error)}`);
+            notifications.show({color: 'brandRed', message: `Ошибка при загрузке файла: ${getErrorMessage(error)}`});
         } finally {
             setIsUploading(false);
         }
@@ -179,151 +163,79 @@ const FileStepContent = ({
             const ok = await performUpload(JSON.stringify(mapping));
             if (ok) setMappingModalOpen(false);
         } catch (error: unknown) {
-            message.error(`Ошибка при загрузке файла: ${getErrorMessage(error)}`);
+            notifications.show({color: 'brandRed', message: `Ошибка при загрузке файла: ${getErrorMessage(error)}`});
         } finally {
             setIsUploading(false);
         }
     };
 
-    const handleSaveExisting = () => {
-        if (!selectedExistingTable) {
-             void message.warning('Пожалуйста, выберите таблицу');
-            return;
-        }
-
-        onSaveSuccess(fileType, {
-            type: 'existing',
-            existingTableName: selectedExistingTable,
-        });
-
-        void message.success(`${getFileTypeLabel(fileType)} успешно настроен`);
-    };
-
-    const dvUploadProps: UploadProps = {
-        name: 'dvFile',
-        multiple: false,
-        accept: '.xlsx,.xls',
-        beforeUpload: (file) => {
-            setDvFile(file);
-            void message.success(`Файл ДВ ${file.name} успешно загружен`);
-            return false;
-        },
-        onRemove: () => {
-            setDvFile(null);
-        },
-        fileList: dvFile ? [{uid: 'dv-1', name: dvFile.name, status: 'done'}] : [],
-    };
-
-    const tabItems = [
-        {
-            key: 'upload',
-            label: <span><UploadOutlined/> Загрузить новый файл</span>,
-            children: (
-                <>
-                    {isRssStep && (
-                        <label style={{display: 'block', marginBottom: 8, fontWeight: 500}}>Файл РСС</label>
-                    )}
-                    <Upload.Dragger {...uploadProps}>
-                        <p className="ant-upload-drag-icon"><InboxOutlined/></p>
-                        <p className="ant-upload-text">Кликните или перетащите файл для загрузки</p>
-                        <p className="ant-upload-hint">Поддерживаются форматы: .xlsx, .xls</p>
-                    </Upload.Dragger>
-
-                    {isRssStep && (
-                        <div style={{marginTop: 16}}>
-                            <label style={{display: 'block', marginBottom: 8, fontWeight: 500}}>
-                                Файл ДВ <span style={{color: '#999', fontWeight: 400}}>(опционально)</span>
-                            </label>
-                            <Upload.Dragger {...dvUploadProps}>
-                                <p className="ant-upload-drag-icon"><InboxOutlined/></p>
-                                <p className="ant-upload-text">Кликните или перетащите файл ДВ</p>
-                                <p className="ant-upload-hint">Без ДВ Код_ремонта_3 берётся из исходной колонки «Код ремонта». Форматы: .xlsx, .xls</p>
-                            </Upload.Dragger>
-                        </div>
-                    )}
-
-                    {uploadedFile && (
-                        <>
-                            <div style={{marginTop: 16}}>
-                                <label style={{display: 'block', marginBottom: 8}}>Название таблицы</label>
-                                <Input
-                                    placeholder="Назовите таблицу"
-                                    value={tableName}
-                                    onChange={(e) => setTableName(e.target.value)}
-                                />
-                            </div>
-
-                            <div style={{marginTop: 16}}>
-                                <label style={{display: 'block', marginBottom: 8}}>Выберите лист (страницу)</label>
-                                <Select
-                                    placeholder="Выберите нужную страницу"
-                                    value={selectedSheet}
-                                    onChange={setSelectedSheet}
-                                    options={sheetNames.map(name => ({value: name, label: name}))}
-                                    style={{width: '100%'}}
-                                />
-                            </div>
-                        </>
-                    )}
-
-                    <Button
-                        type="primary"
-                        onClick={handleSaveUpload}
-                        block
-                        disabled={isSaved}
-                        loading={isUploading}
-                        icon={isSaved ? <CheckCircleOutlined/> : undefined}
-                        style={{marginTop: 16}}
-                    >
-                        {isSaved ? 'Сохранено' : isUploading ? 'Загрузка...' : 'Сохранить выбор'}
-                    </Button>
-                </>
-            ),
-        },
-        {
-            key: 'existing',
-            label: <span><DatabaseOutlined/> Использовать существующую таблицу</span>,
-            children: (
-                <>
-                    <div>
-                        <label style={{display: 'block', marginBottom: 8}}>Доступные таблицы</label>
-                        <Select
-                            placeholder={isLoadingTables ? 'Загрузка...' : 'Выберите таблицу'}
-                            value={selectedExistingTable}
-                            onChange={(value) => setSelectedExistingTable(value as string)}
-                            loading={isLoadingTables}
-                            disabled={isLoadingTables}
-                            options={filteredTables.map(t => ({value: t.table_name, label: t.table_name}))}
-                            style={{width: '100%'}}
-                            notFoundContent={
-                                isLoadingTables ? 'Загрузка...' :
-                                filteredTables.length === 0 ? `Нет доступных таблиц типа "${getFileTypeLabel(fileType)}"` : null
-                            }
-                        />
-                    </div>
-
-                    <Button
-                        type="primary"
-                        onClick={handleSaveExisting}
-                        block
-                        disabled={isSaved}
-                        icon={isSaved ? <CheckCircleOutlined/> : undefined}
-                        style={{marginTop: 16}}
-                    >
-                        {isSaved ? 'Сохранено' : 'Сохранить выбор'}
-                    </Button>
-                </>
-            ),
-        },
-    ];
-
     return (
-        <>
-            <Tabs
-                activeKey={activeTab}
-                items={tabItems}
-                onChange={(key) => setActiveTab(key as 'upload' | 'existing')}
-            />
+        <Stack gap="md">
+            {isRssStep && <Text size="sm" fw={500} c={nc.text}>Файл РСС</Text>}
+            <Dropzone
+                onDrop={(files) => handleFile(files[0] ?? null)}
+                accept={EXCEL_MIME}
+                multiple={false}
+                maxFiles={1}
+                radius="md"
+            >
+                <DropzoneBody label="Кликните или перетащите файл для загрузки" />
+            </Dropzone>
+
+            {uploadedFile && (
+                <Group gap={6}>
+                    <IconFileSpreadsheet size={16} color={nc.green} />
+                    <Text size="sm" c={nc.text}>{uploadedFile.name}</Text>
+                </Group>
+            )}
+
+            {isRssStep && (
+                <Box>
+                    <Text size="sm" fw={500} c={nc.text} mb={6}>
+                        Файл ДВ <Text span c="dimmed" size="xs">(опционально)</Text>
+                    </Text>
+                    <Dropzone
+                        onDrop={(files) => setDvFile(files[0] ?? null)}
+                        accept={EXCEL_MIME}
+                        multiple={false}
+                        maxFiles={1}
+                        radius="md"
+                    >
+                        <DropzoneBody label="Файл ДВ — без него Код_ремонта_3 берётся из «Код ремонта»" />
+                    </Dropzone>
+                    {dvFile && (
+                        <Group gap={6} mt={6}>
+                            <IconFileSpreadsheet size={16} color={nc.green} />
+                            <Text size="sm" c={nc.text}>{dvFile.name}</Text>
+                        </Group>
+                    )}
+                </Box>
+            )}
+
+            {uploadedFile && sheetNames.length > 0 && (
+                <Select
+                    label="Лист (страница)"
+                    description="По умолчанию — первый осмысленный лист"
+                    placeholder="Выберите лист"
+                    value={selectedSheet || null}
+                    onChange={(v) => setSelectedSheet(v ?? '')}
+                    data={sheetNames.map((name) => ({value: name, label: name}))}
+                    clearable
+                    comboboxProps={{withinPortal: false}}
+                />
+            )}
+
+            <Button
+                onClick={handleSaveUpload}
+                fullWidth
+                loading={isUploading}
+                disabled={isSaved}
+                color={isSaved ? 'gray' : 'tatneft'}
+                leftSection={isSaved ? <IconCircleCheck size={16} /> : undefined}
+            >
+                {isSaved ? 'Сохранено' : 'Загрузить'}
+            </Button>
+
             <UploadErrorModal
                 open={errorModalOpen}
                 onClose={() => setErrorModalOpen(false)}
@@ -340,7 +252,7 @@ const FileStepContent = ({
                 onSubmit={handleMappingSubmit}
                 isSubmitting={isUploading}
             />
-        </>
+        </Stack>
     );
 };
 

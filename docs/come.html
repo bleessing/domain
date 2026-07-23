@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ТОиР — надёжность и эффективность | Встреча с КРС-Сервис</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: #e2e8f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 32px;
+        }
+
+
+        .presentation {
+            max-width: 1200px;
+            width: 100%;
+            background: white;
+            border-radius: 32px;
+            box-shadow: 0 25px 40px -12px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+
+        .slide {
+            display: none;
+            padding: 48px 52px;
+            animation: fade 0.3s ease;
+        }
+
+        .slide.active {
+            display: block;
+        }
+
+        @keyframes fade {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+
+        h1 {
+            font-size: 44px;
+            font-weight: 800;
+            color: #0a2e3f;
+            line-height: 1.2;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            font-size: 32px;
+            font-weight: 700;
+            color: #155f7c;
+            margin: 16px 0 20px 0;
+        }
+
+        h3 {
+            font-size: 22px;
+            font-weight: 600;
+            color: #1a6d8f;
+            margin: 20px 0 12px 0;
+        }
+
+        .subhead {
+            font-size: 18px;
+            color: #2c5a6e;
+            margin-bottom: 32px;
+            border-left: 4px solid #2c9cd4;
+            padding-left: 20px;
+        }
+
+        .badge {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 600;
+            color: #2c7cb6;
+            background: #e8f0f7;
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 40px;
+            margin-bottom: 20px;
+        }
+
+
+        .two-columns {
+            display: flex;
+            gap: 40px;
+            margin: 24px 0;
+            flex-wrap: wrap;
+        }
+
+        .col {
+            flex: 1;
+            min-width: 240px;
+        }
+
+        .bullet-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .bullet-list li {
+            margin-bottom: 16px;
+            font-size: 17px;
+            line-height: 1.4;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .bullet-list li::before {
+            content: "▹";
+            color: #2c9cd4;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .check-list li::before {
+            content: "✓";
+            color: #2b8c4a;
+            font-weight: bold;
+            font-size: 20px;
+        }
+
+        .benefit-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #f9fbfd;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .benefit-table th {
+            background: #e1f0f8;
+            padding: 14px 12px;
+            text-align: left;
+            font-weight: 700;
+            color: #0e4b64;
+        }
+
+        .benefit-table td {
+            padding: 14px 12px;
+            border-bottom: 1px solid #e2edf2;
+            vertical-align: top;
+        }
+
+        .risk-box {
+            background: #fff3e0;
+            border-left: 6px solid #e67e22;
+            padding: 22px 28px;
+            border-radius: 24px;
+            margin: 24px 0;
+        }
+
+        .highlight-blue {
+            background: #eef4fc;
+            padding: 24px;
+            border-radius: 24px;
+        }
+
+        .timeline-risk {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 12px;
+            margin: 30px 0;
+        }
+
+        .step {
+            flex: 1;
+            background: #f8fafc;
+            border-radius: 20px;
+            padding: 16px;
+            text-align: center;
+            border-top: 4px solid #cbdde9;
+        }
+
+        .step .icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        .bad-risk {
+            border-top-color: #e67e22;
+            background: #fff8f0;
+        }
+
+        /* иконки-ряды */
+        .icon-row {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            margin: 24px 0;
+        }
+
+        .icon-card {
+            flex: 1;
+            background: #f9f9fc;
+            padding: 18px;
+            border-radius: 24px;
+            text-align: center;
+        }
+
+        .icon-card span {
+            font-size: 36px;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .case-study {
+            background: #eef3ea;
+            padding: 24px;
+            border-radius: 28px;
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        /* навигация */
+        .nav-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 52px 32px;
+            background: white;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        button {
+            background: #eef2f8;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            padding: 10px 24px;
+            border-radius: 40px;
+            cursor: pointer;
+            font-family: inherit;
+            color: #1a5d7a;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            background: #dee6ef;
+            transform: scale(0.96);
+        }
+
+        .page-indicator {
+            background: #eef2f8;
+            padding: 6px 18px;
+            border-radius: 40px;
+            font-size: 14px;
+            color: #1f5e7a;
+        }
+
+        @media (max-width: 750px) {
+            .slide {
+                padding: 28px 20px;
+            }
+
+            h1 {
+                font-size: 32px;
+            }
+
+            h2 {
+                font-size: 26px;
+            }
+
+            .two-columns {
+                flex-direction: column;
+            }
+
+            .nav-controls {
+                padding: 16px 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="presentation">
+    <div class="slide active" id="slide1">
+        <div class="badge">КРС-Сервис | встреча 10:00 среда</div>
+        <h1>Система ТОиР:<br>основа надёжности и эффективности</h1>
+        <div class="subhead">Зачем фиксировать данные? Последствия игнорирования процессов</div>
+        <div style="margin-top: 32px; background: #eef2fa; border-radius: 28px; padding: 20px; text-align: center; color: #2c5a6e;">
+            ⚙️ Логотип компании | Оборудование / цех
+        </div>
+        <div class="highlight-blue" style="margin-top: 32px;">
+            <strong>🎤 Добрый день.</strong> Сегодня разберём, почему работа в системе ТОиР — это не дополнительная
+            нагрузка, а инструмент, который упрощает нашу работу и защищает от серьёзных проблем.
+        </div>
+    </div>
+
+    <div class="slide" id="slide2">
+        <div class="badge">Определение</div>
+        <h2>ТОиР — не просто учёт, а стратегия</h2>
+        <div class="two-columns">
+            <div class="col">
+                <ul class="bullet-list">
+                    <li>ТОиР = Техническое обслуживание и ремонт</li>
+                    <li>Централизованная база данных по оборудованию</li>
+                    <li>Планирование ремонтов (ППР — планово‑предупредительные работы)</li>
+                    <li>Учёт дефектов и отказов</li>
+                    <li>Управление материально‑техническими ресурсами (ТМЦ)</li>
+                </ul>
+            </div>
+            <div class="col highlight-blue">
+                <div style="text-align: center;">📊 Схема «жизненного цикла» оборудования</div>
+                <div style="background:#fff; border-radius: 20px; margin-top: 12px; padding: 16px; text-align: center; font-size: 14px;">
+                    Эксплуатация → Дефект → ППР → Заявка ТМЦ → Ремонт → Анализ
+                </div>
+            </div>
+        </div>
+        <div class="subhead" style="margin-top: 8px;">🎤 Система ТОиР — единый центр информации. Она позволяет видеть
+            состояние всего оборудования, планировать работы и заранее готовить ресурсы.
+        </div>
+    </div>
+
+    <div class="slide" id="slide3">
+        <div class="badge">Ваши прямые выгоды</div>
+        <h2>Что даёт работа в системе ТОиР?</h2>
+        <table class="benefit-table">
+            <thead>
+            <tr>
+                <th>Проблема без ТОиР</th>
+                <th>Решение через ТОиР</th>
+                <th>Выгода для специалиста</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td>Срочные ремонты «на коленке»</td>
+                <td>Плановые ППР</td>
+                <td>Меньше авралов, предсказуемая нагрузка</td>
+            </tr>
+            <tr>
+                <td>Поиск запчастей «по знакомым»</td>
+                <td>Заявленные и закупленные ТМЦ</td>
+                <td>Всё под рукой, не нужно «выбивать» ресурсы</td>
+            </tr>
+            <tr>
+                <td>Споры о причинах поломки</td>
+                <td>Фиксированный дефект + история</td>
+                <td>Прозрачность, защита от претензий</td>
+            </tr>
+            <tr>
+                <td>Ручные отчёты и Excel</td>
+                <td>Автоматизированная отчётность</td>
+                <td>Экономия времени на бумажную работу</td>
+            </tr>
+            </tbody>
+        </table>
+        <div class="icon-row">
+            <div class="icon-card"><span>⏱️</span> Время</div>
+            <div class="icon-card"><span>🛡️</span> Защита</div>
+            <div class="icon-card"><span>📂</span> Порядок</div>
+        </div>
+        <div class="highlight-blue" style="margin-top: 16px;">🎤 Система работает на вас. Снимает рутину, страхует от
+            авралов и защищает репутацию.
+        </div>
+    </div>
+
+    <div class="slide" id="slide4">
+        <div class="badge">Ключевой процесс</div>
+        <h2>Как данные ТОиР влияют на бюджет?</h2>
+        <div class="highlight-blue" style="background: #fff6e5;">
+            <div style="font-weight: 700;">Блок-схема:</div>
+            <div style="background: white; border-radius: 20px; padding: 20px; margin-top: 12px;">
+                <strong style="color:#c0392b;">Графики ППР + Учёт дефектов</strong> → Формирование ремонтной программы →
+                Заявочные ведомости ТМЦ → Утверждение бюджета → Закупка и выполнение работ
+            </div>
+            <div style="margin-top: 16px; background:#fbe9e7; padding: 12px; border-radius: 20px; color:#b33c1f;">
+                ⚠️ <strong>Без этого всё рушится!</strong> Нет графиков и дефектов → нет обоснованной заявки → нет
+                закупки → нет ремонта.
+            </div>
+        </div>
+        <div class="subhead" style="margin-top: 20px;">🎤 Бюджет формируется сверху вниз, но опирается на ваши данные
+            снизу.
+        </div>
+    </div>
+
+    <div class="slide" id="slide5">
+        <div class="badge">Реальный сценарий</div>
+        <h2>❌ «Что будет, если не фиксировать данные?»</h2>
+        <div class="timeline-risk">
+            <div class="step">
+                <div class="icon">📅</div>
+                1. Не внесены ППР и дефекты по насосу Н‑15
+            </div>
+            <div class="step">
+                <div class="icon">📋</div>
+                2. В ремонтную программу насос не попал
+            </div>
+            <div class="step bad-risk">
+                <div class="icon">💰❌</div>
+                3. Запчасть (вал) не заявлена → бюджет не выделен
+            </div>
+            <div class="step bad-risk">
+                <div class="icon">⚙️💥</div>
+                4. Поломка → насос встал, запчасти нет
+            </div>
+            <div class="step bad-risk">
+                <div class="icon">⏳❗</div>
+                5. Простой, срыв производства, штрафы
+            </div>
+        </div>
+        <div class="risk-box">
+            <strong>🎤 Это не гипотеза, а реальный риск.</strong> Один пропущенный дефект сегодня — простой линии завтра.
+            Система ТОиР помогает этого избежать.
+        </div>
+    </div>
+
+    <div class="slide" id="slide6">
+        <div class="badge">Цена ошибки</div>
+        <h2>Чем ещё грозит игнорирование системы?</h2>
+        <div class="icon-row">
+            <div class="icon-card"><span>📄⚠️</span> Нарушение регламентов и штрафы: нет доказательной базы ППР</div>
+            <div class="icon-card"><span>⚡📈</span> Рост аварийности: неучтённые дефекты накапливаются</div>
+            <div class="icon-card"><span>💰❓</span> Неэффективный бюджет: закупка «про запас» вместо целевых нужд</div>
+            <div class="icon-card"><span>📂➖</span> Потеря истории оборудования: невозможно анализировать отказы</div>
+        </div>
+        <div class="highlight-blue" style="margin-top: 16px;">🎤 Риски касаются не только ремонтов, но и всей компании:
+            от штрафов до репутации. Система — это наш щит.
+        </div>
+    </div>
+
+    <div class="slide" id="slide7">
+        <div class="badge">Реальный пример</div>
+        <h2>✅ Предотвращённый простой</h2>
+        <div class="case-study">
+            <div style="flex: 1;">
+                <span style="font-size: 40px;">🔧➡️✅</span>
+                <div style="background:#d9e8f5; border-radius: 20px; padding: 12px; margin-top: 8px;">Конвейер К‑3</div>
+            </div>
+            <div style="flex: 3;">
+                <ul class="bullet-list check-list">
+                    <li>Оператор отметил в ТОиР повышенный шум подшипника</li>
+                    <li>Дефект зафиксирован, включён в график ППР</li>
+                    <li>Заявлена и закуплена запчасть</li>
+                    <li>Подшипник заменён планово → <strong>простой 0 часов</strong></li>
+                </ul>
+                <div class="risk-box" style="background:#ffe6e6; margin-top: 12px;">🔁 Если бы не зафиксировали —
+                    подшипник заклинил бы в смену, простой 8+ часов
+                </div>
+            </div>
+        </div>
+        <div class="subhead" style="margin-top: 20px;">🎤 Реальная польза от пары минут записи в системе. Это не
+            бюрократия, а профилактика проблем.
+        </div>
+    </div>
+
+    <div class="slide" id="slide8">
+        <div class="badge">Ваши действия</div>
+        <h2>Простота действий — значимый результат</h2>
+        <div class="two-columns">
+            <div class="col">
+                <ul class="bullet-list">
+                    <li><strong>1.</strong> Фиксируйте дефекты сразу (моб. приложение / терминал)</li>
+                    <li><strong>2.</strong> Обновляйте статус работ (начата, завершена)</li>
+                    <li><strong>3.</strong> Вносите данные по заменённым узлам и материалам</li>
+                </ul>
+                <div class="highlight-blue" style="margin-top: 20px;">🖥️ ИТ‑отдел обеспечит обучение. Интерфейс
+                    максимально упрощён.
+                </div>
+            </div>
+            <div class="col highlight-blue" style="text-align: center;">
+                <div>📱 Пример интерфейса</div>
+                <div style="background:white; border-radius: 24px; padding: 20px;">✓ Дефект: вибрация насоса<br>✓
+                    Статус: ремонт<br>✓ Материал: подшипник
+                </div>
+            </div>
+        </div>
+        <div class="subhead">🎤 От вас — отметить факт в системе, займёт меньше минуты, эффект — огромный.</div>
+    </div>
+
+
+    <div class="slide" id="slide9">
+        <div class="badge">Вместе к надёжности</div>
+        <h2>Система ТОиР — ваш инструмент, а не контролёр</h2>
+        <div class="icon-row">
+            <div class="icon-card"><span>📊✅</span> Данные в системе = обоснованный бюджет и материалы</div>
+            <div class="icon-card"><span>🛠️➡️✔️</span> Фиксируйте дефекты → избегайте авралов</div>
+            <div class="icon-card"><span>📜🔍</span> История оборудования = анализ надёжности</div>
+            <div class="icon-card"><span>⏱️🛡️</span> Простота ввода = защита от простоев и штрафов</div>
+        </div>
+        <div class="risk-box" style="background: #e0f0e8; border-left-color: #2c9cd4;">
+            <strong>🎯 Призыв:</strong> Давайте вместе настроим процессы так, чтобы система работала на вас. Начнём с
+            малого — с фиксации первого дефекта сегодня.
+        </div>
+        <div style="text-align: center; margin-top: 24px;">🤝 Команда у монитора с ТОиР → стрелки вверх (надёжность,
+            эффективность)
+        </div>
+    </div>
+
+
+    <div class="nav-controls">
+        <button id="prevBtn">◀ Назад</button>
+        <span class="page-indicator" id="pageIndicator">1 / 9</span>
+        <button id="nextBtn">Вперед ▶</button>
+    </div>
+</div>
+
+<script>
+    const slides = document.querySelectorAll('.slide');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const indicator = document.getElementById('pageIndicator');
+    let current = 0;
+
+    function update() {
+        slides.forEach((s, idx) => {
+            s.classList.toggle('active', idx === current);
+        });
+        indicator.innerText = (current + 1) + ' / ' + slides.length;
+    }
+
+    function next() {
+        if (current + 1 < slides.length) {
+            current++;
+            update();
+        }
+    }
+
+    function prev() {
+        if (current - 1 >= 0) {
+            current--;
+            update();
+        }
+    }
+
+    prevBtn.addEventListener('click', prev);
+    nextBtn.addEventListener('click', next);
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft') {
+            prev();
+            e.preventDefault();
+        }
+        if (e.key === 'ArrowRight') {
+            next();
+            e.preventDefault();
+        }
+    });
+</script>
+</body>
+</html>

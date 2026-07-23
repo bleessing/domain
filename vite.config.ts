@@ -24,8 +24,14 @@ export default defineConfig({
           'vendor-plotly': ['plotly.js', 'react-plotly.js'],
           // React-экосистема — стабильный кешируемый чанк
           'vendor-react': ['react', 'react-dom', 'react-router'],
-          // Ant Design — большая библиотека, отдельный кешируемый чанк
-          'vendor-antd': ['antd'],
+          // Mantine — UI-кит, отдельный кешируемый чанк
+          'vendor-mantine': [
+            '@mantine/core',
+            '@mantine/hooks',
+            '@mantine/dates',
+            '@mantine/notifications',
+            '@mantine/dropzone',
+          ],
         },
       },
     },
