@@ -14,11 +14,11 @@ export interface FilterQueryOptions {
     /** Имя параметра для одиночной таблицы остатков (при ostTableMode 'start'/'end'). По умолчанию: 'ost_table' */
     ostTableKey?: 'ost_table' | 'leftovers_table';
     /** Какие mode-параметры включать из FilterParams */
-    modes?: ModeKey[];
+    modes?: ReadonlyArray<ModeKey>;
     /** Переопределить значение mode (условие берётся из filter) */
     modeOverrides?: Partial<Record<ModeKey, string>>;
     /** Какие массивы включать из FilterParams */
-    arrays?: ArrayKey[];
+    arrays?: ReadonlyArray<ArrayKey>;
     /** Статические параметры, всегда добавляемые (например, states_mode=in) */
     staticParams?: Record<string, string>;
     /** Включить is_leftovers из FilterParams (если задан) */

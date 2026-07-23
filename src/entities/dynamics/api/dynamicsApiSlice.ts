@@ -11,6 +11,7 @@ const DYNAMICS_OPTIONS = {
     staticParams: { states_mode: 'in' },
 };
 
+
 export const dynamicsApi = baseApi.injectEndpoints({
     endpoints: (builder) => ({
         getDynamicsForState: builder.query<DynamicsResponse, { filters: FilterParams; state: string }>({
@@ -20,5 +21,4 @@ export const dynamicsApi = baseApi.injectEndpoints({
         }),
     }),
 });
-
 export const { useGetDynamicsForStateQuery, useLazyGetDynamicsForStateQuery } = dynamicsApi;

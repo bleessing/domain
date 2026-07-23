@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { Col, Row, Radio, Spin, message, Button } from 'antd';
-import { HomeOutlined } from '@ant-design/icons';
+import { Box, Container, Group, Stack, Button, Text, Loader, SegmentedControl, Paper, Title } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
+import { IconHome } from '@tabler/icons-react';
 import { useSearchParams, useNavigate } from 'react-router';
 import { useGetFilterOptionsQuery } from '@/entities/filter/api/filterApiSlice';
 
@@ -18,6 +19,7 @@ import BalanceTable from '@/widgets/balance-table/ui/BalanceTable';
 import { FiltersPanel } from '@/features/filters';
 import { ExportButtons } from '@/features/export';
 import type { FilterParams } from '@/entities/filter';
+import { nc } from '@/shared/lib/mantineTheme';
 
 // Тяжёлые Plotly-компоненты (~3MB) — загружаются лениво при первом показе данных
 const SankeyDiagram = lazy(() => import('@/widgets/sankey-diagram/ui/SankeyDiagram'));
@@ -26,9 +28,9 @@ const LeftoversChart = lazy(() => import('@/widgets/leftovers-chart/ui/Leftovers
 const WaterfallChart = lazy(() => import('@/widgets/waterfall-chart/ui/WaterfallChart'));
 
 const ChartFallback = (
-    <div style={{ padding: '48px', textAlign: 'center' }}>
-        <Spin size="large" aria-label="Загрузка графика..." />
-    </div>
+    <Group justify="center" p={48}>
+        <Loader color="tatneft" aria-label="Загрузка графика..." />
+    </Group>
 );
 
 function DashboardPage() {
@@ -42,8 +44,7 @@ function DashboardPage() {
     const vg_table = searchParams.get('vg_table') || '';
     // Тип оборудования с главной страницы — попадёт в каждый API-запрос.
     const equipment_type = searchParams.get('eq') || undefined;
-    // Таблицы остатков: на начало и на конец периода. Fallback на старый leftovers_table
-    // (он трактуется как «конец», т.к. ранее использовался для всех графиков как текущая картина).
+    // Таблицы остатков: на начало и на конец периода.
     const leftovers_table_legacy = searchParams.get('leftovers_table') || '';
     const ost_table_start = searchParams.get('leftovers_table_start') || '';
     const ost_table_end = searchParams.get('leftovers_table_end') || leftovers_table_legacy;
@@ -86,7 +87,9 @@ function DashboardPage() {
         );
 
     useEffect(() => {
-        if (isFilterError) message.error('Ошибка при загрузке фильтров');
+        if (isFilterError) {
+            notifications.show({ color: 'brandRed', message: 'Ошибка при загрузке фильтров' });
+        }
     }, [isFilterError]);
 
     // Подставляем даты из filterOptions как дефолтные, пока пользователь их не выбрал вручную
@@ -96,7 +99,6 @@ function DashboardPage() {
         date_to: currentFilters.date_to ?? filterOptions?.date_range.max ?? null,
     }), [currentFilters, filterOptions]);
 
-    // Виджеты с их хуками
     const sankeyWidget = useSankeyData();
     const balanceWidget = useBalanceData();
     const dynamicsWidget = useDynamicsData();
@@ -105,11 +107,10 @@ function DashboardPage() {
 
     // Суффикс заголовков с выбранными состояниями
     const statesSuffix = useMemo(
-        () => currentFilters.states?.length > 0 ? ` (${currentFilters.states.join(', ')})` : '',
+        () => (!currentFilters.states?.length ? '' : ` (${currentFilters.states.join(', ')})`),
         [currentFilters.states],
     );
 
-    // Обработка нажатия кнопки "Обновить диаграмму"
     const handleApplyFilters = useCallback(async () => {
         // Для графика остатков всегда используем is_leftovers: true
         const leftoverFilters = { ...effectiveFilters, is_leftovers: true };
@@ -123,55 +124,65 @@ function DashboardPage() {
                 waterfallWidget.loadData(effectiveFilters),
             ]);
         } catch (error) {
-            message.error('Ошибка при загрузке данных');
+            notifications.show({ color: 'brandRed', message: 'Ошибка при загрузке данных' });
             console.error('handleApplyFilters error:', error);
         }
     }, [effectiveFilters, sankeyWidget, balanceWidget, dynamicsWidget, leftoversWidget, waterfallWidget]);
 
     if (!zvz_table || !rss_table) {
         return (
-            <div style={{ padding: '48px', textAlign: 'center' }}>
-                <h2>Отсутствуют параметры таблиц</h2>
-                <p>Пожалуйста, вернитесь на <a href="/">страницу загрузки</a> и выберите таблицы.</p>
-            </div>
+            <Container size={640} py={80}>
+                <Stack align="center" gap="sm">
+                    <Title order={3} c={nc.text}>Отсутствуют параметры таблиц</Title>
+                    <Text c="dimmed" ta="center">
+                        Вернитесь на страницу загрузки и выберите таблицы.
+                    </Text>
+                    <Button leftSection={<IconHome size={16} />} onClick={() => navigate('/')}>
+                        На главную
+                    </Button>
+                </Stack>
+            </Container>
         );
     }
 
     if (isLoadingFilters) {
         return (
-            <div style={{ padding: '48px', textAlign: 'center' }}>
-                <Spin size="large" />
-                <p style={{ marginTop: '16px' }}>Загрузка фильтров...</p>
-            </div>
+            <Stack align="center" gap="sm" py={80}>
+                <Loader color="tatneft" />
+                <Text c="dimmed">Загрузка фильтров...</Text>
+            </Stack>
         );
     }
 
     return (
-        <>
-            <Row style={{ marginBottom: '16px' }}>
-                <Col span={24}>
-                    <div style={{
-                        padding: '12px 16px',
-                        background: '#f0f2f5',
-                        borderRadius: '8px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px',
-                        justifyContent: 'space-between',
-                    }}>
-                        <div style={{display: 'flex', alignItems: 'center', gap: 12}}>
-                            <Button icon={<HomeOutlined/>} onClick={() => navigate('/')}>
-                                На главную
-                            </Button>
-                            <span style={{ fontWeight: 500, color: '#000' }}>Экспорт данных:</span>
-                            <ExportButtons filters={effectiveFilters} />
-                        </div>
-                    </div>
-                </Col>
-            </Row>
+        <Box style={{ minHeight: '100vh', background: nc.surface }}>
+            <Box
+                style={{
+                    minHeight: 45,
+                    display: 'flex',
+                    alignItems: 'center',
+                    paddingInline: 16,
+                    borderBottom: `1px solid ${nc.border}`,
+                    flexWrap: 'wrap',
+                    gap: 12,
+                }}
+            >
+                <Button
+                    variant="subtle"
+                    color="gray"
+                    size="compact-sm"
+                    leftSection={<IconHome size={15} />}
+                    onClick={() => navigate('/')}
+                >
+                    На главную
+                </Button>
+                <Text c={nc.dimmed}>/</Text>
+                <Text size="sm" fw={600} c={nc.text}>Экспорт данных</Text>
+                <ExportButtons filters={effectiveFilters} />
+            </Box>
 
-            <Row gutter={24} wrap={false}>
-                <Col>
+            <Container size={1600} py="lg">
+                <Group align="flex-start" gap="lg" wrap="nowrap" style={{ overflowX: 'auto' }}>
                     <FiltersPanel
                         filterOptions={filterOptions ?? null}
                         currentFilters={effectiveFilters}
@@ -179,82 +190,74 @@ function DashboardPage() {
                         onApplyFilters={handleApplyFilters}
                         isLoading={sankeyWidget.isLoading}
                     />
-                </Col>
-                <Col>
-                    {sankeyWidget.data ? (
-                        <Suspense fallback={ChartFallback}>
-                            <SankeyDiagram
-                                colorScheme='pastel'
-                                data={sankeyWidget.data}
-                                title={`Учет движения ГНО${statesSuffix}`}
-                            />
-                        </Suspense>
-                    ) : (
-                        <div style={{ padding: '48px', textAlign: 'center' }}>
-                            <p style={{ color: 'darkred' }}>Нет данных для отображения. Настройте фильтры и нажмите "Обновить диаграмму".</p>
-                        </div>
+
+                    <Box style={{ flex: 1, minWidth: 0 }}>
+                        {sankeyWidget.data ? (
+                            <Suspense fallback={ChartFallback}>
+                                <SankeyDiagram
+                                    colorScheme='pastel'
+                                    data={sankeyWidget.data}
+                                    title={`Учет движения ГНО${statesSuffix}`}
+                                />
+                            </Suspense>
+                        ) : (
+                            <Paper withBorder radius="md" p={48} style={{ borderColor: nc.border }}>
+                                <Text c="dimmed" ta="center">
+                                    Нет данных для отображения. Настройте фильтры и нажмите «Обновить диаграмму».
+                                </Text>
+                            </Paper>
+                        )}
+                    </Box>
+                </Group>
+
+                <Stack gap="lg" mt="lg">
+                    {balanceWidget.data.length > 0 && <BalanceTable data={balanceWidget.data} />}
+
+                    {dynamicsWidget.data && (
+                        <Stack gap="sm">
+                            <Group gap="md">
+                                <Text size="sm" fw={500} c={nc.text}>Тип графика динамики:</Text>
+                                <SegmentedControl
+                                    value={dynamicsChartType}
+                                    onChange={(v) => setDynamicsChartType(v as 'bar' | 'line')}
+                                    color="tatneft"
+                                    size="xs"
+                                    data={[
+                                        { value: 'bar', label: 'Гистограмма' },
+                                        { value: 'line', label: 'Линейный график' },
+                                    ]}
+                                />
+                            </Group>
+                            <Suspense fallback={ChartFallback}>
+                                <DynamicsChart
+                                    data={dynamicsWidget.data}
+                                    chartType={dynamicsChartType}
+                                    title={`Динамика${statesSuffix}`}
+                                />
+                            </Suspense>
+                        </Stack>
                     )}
-                </Col>
-            </Row>
 
-            {balanceWidget.data.length > 0 && (
-                <Row style={{ marginTop: '24px' }}>
-                    <Col span={24}>
-                        <BalanceTable data={balanceWidget.data} />
-                    </Col>
-                </Row>
-            )}
-
-            {dynamicsWidget.data && (
-                <Row style={{ marginTop: '24px' }}>
-                    <Col span={24}>
-                        <div style={{ marginBottom: '10px', paddingBottom: '10px' }}>
-                            <span style={{ marginRight: '12px', fontWeight: 500, color: 'black' }}>Тип графика динамики:</span>
-                            <Radio.Group
-                                value={dynamicsChartType}
-                                onChange={(e) => setDynamicsChartType(e.target.value)}
-                            >
-                                <Radio.Button value="bar">Гистограмма</Radio.Button>
-                                <Radio.Button value="line">Линейный график</Radio.Button>
-                            </Radio.Group>
-                        </div>
-                        <Suspense fallback={ChartFallback}>
-                            <DynamicsChart
-                                data={dynamicsWidget.data}
-                                chartType={dynamicsChartType}
-                                title={`Динамика${statesSuffix}`}
-                            />
-                        </Suspense>
-                    </Col>
-                </Row>
-            )}
-
-            {leftoversWidget.data && (
-                <Row style={{ marginTop: '24px' }}>
-                    <Col span={24}>
+                    {leftoversWidget.data && (
                         <Suspense fallback={ChartFallback}>
                             <LeftoversChart
                                 data={leftoversWidget.data}
                                 title={`Накопительный баланс${statesSuffix}`}
                             />
                         </Suspense>
-                    </Col>
-                </Row>
-            )}
+                    )}
 
-            {waterfallWidget.data && (
-                <Row style={{ marginTop: '24px' }}>
-                    <Col span={24}>
+                    {waterfallWidget.data && (
                         <Suspense fallback={ChartFallback}>
                             <WaterfallChart
                                 data={waterfallWidget.data}
                                 title={`Waterfall${statesSuffix}`}
                             />
                         </Suspense>
-                    </Col>
-                </Row>
-            )}
-        </>
+                    )}
+                </Stack>
+            </Container>
+        </Box>
     );
 }
 

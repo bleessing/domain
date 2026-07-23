@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Modal, Select, Space, Typography, Alert } from 'antd';
-
-const { Text } = Typography;
+import {useMemo, useState} from 'react';
+import {Modal, Stack, Group, Select, Alert, Button} from '@mantine/core';
+import {IconInfoCircle} from '@tabler/icons-react';
 
 interface Props {
     open: boolean;
@@ -16,35 +15,25 @@ interface Props {
     isSubmitting?: boolean;
 }
 
-/**
- * Модалка для ручного маппинга колонок Excel-файла к каноническим именам.
- * Открывается, когда upload вернул 422 с code="MISSING_COLUMNS".
- */
-const ColumnMappingModal = ({
-    open,
-    onClose,
+/** Внутренняя форма — своё состояние, сбрасывается через key при смене набора колонок. */
+function MappingForm({
     missing,
     availableInFile,
     tableType,
     onSubmit,
-    isSubmitting = false,
-}: Props) => {
-    // Состояние: каноническое имя (что мы ищем) → выбранное имя в файле.
-    const [selection, setSelection] = useState<Record<string, string | undefined>>({});
+    isSubmitting,
+    onClose,
+}: Omit<Props, 'open'>) {
+    const [selection, setSelection] = useState<Record<string, string | null>>({});
 
-    useEffect(() => {
-        if (open) setSelection({});
-    }, [open, missing.join(',')]);
-
-    const fileColumnOptions = useMemo(
-        () => availableInFile.map(c => ({ label: c, value: c })),
+    const fileColumnData = useMemo(
+        () => availableInFile.map((c) => ({label: c, value: c})),
         [availableInFile],
     );
 
-    const allFilled = missing.every(c => !!selection[c]);
+    const allFilled = missing.every((c) => !!selection[c]);
 
     const handleOk = () => {
-        // Собираем формат который ждёт бэк: {имя_в_файле: каноническое_имя}.
         const mapping: Record<string, string> = {};
         for (const canonical of missing) {
             const chosen = selection[canonical];
@@ -54,48 +43,46 @@ const ColumnMappingModal = ({
     };
 
     return (
-        <Modal
-            open={open}
-            onCancel={onClose}
-            onOk={handleOk}
-            okText="Загрузить с выбранными колонками"
-            cancelText="Отмена"
-            okButtonProps={{ disabled: !allFilled, loading: isSubmitting }}
-            title="Сопоставление колонок"
-            width={620}
-            maskClosable={!isSubmitting}
-        >
-            <Alert
-                type="info"
-                showIcon
-                style={{ marginBottom: 16 }}
-                message={
-                    tableType
-                        ? `В файле для типа "${tableType}" не распознаны обязательные колонки.`
-                        : 'В файле не распознаны обязательные колонки.'
-                }
-                description="Укажите соответствие. После загрузки колонки будут сохранены в БД под каноническими именами."
-            />
+        <Stack gap="md">
+            <Alert icon={<IconInfoCircle size={18} />} color="tatneft" variant="light">
+                {tableType
+                    ? `В файле для типа «${tableType}» не распознаны обязательные колонки.`
+                    : 'В файле не распознаны обязательные колонки.'}
+                {' '}Укажите соответствие — после загрузки колонки сохранятся под каноническими именами.
+            </Alert>
 
-            <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                {missing.map(canonical => (
-                    <div key={canonical}>
-                        <Text strong>{canonical}</Text>
-                        <Select
-                            style={{ width: '100%', marginTop: 4 }}
-                            placeholder="Выберите колонку из файла"
-                            options={fileColumnOptions}
-                            value={selection[canonical]}
-                            onChange={value => setSelection(prev => ({ ...prev, [canonical]: value }))}
-                            showSearch
-                            optionFilterProp="label"
-                            allowClear
-                        />
-                    </div>
-                ))}
-            </Space>
-        </Modal>
+            {missing.map((canonical) => (
+                <Select
+                    key={canonical}
+                    label={canonical}
+                    placeholder="Выберите колонку из файла"
+                    data={fileColumnData}
+                    value={selection[canonical] ?? null}
+                    onChange={(value) => setSelection((prev) => ({...prev, [canonical]: value}))}
+                    searchable
+                    clearable
+                    comboboxProps={{withinPortal: false}}
+                />
+            ))}
+
+            <Group justify="flex-end" mt={4}>
+                <Button variant="default" onClick={onClose}>Отмена</Button>
+                <Button onClick={handleOk} disabled={!allFilled} loading={isSubmitting}>
+                    Загрузить с выбранными колонками
+                </Button>
+            </Group>
+        </Stack>
     );
-};
+}
+
+/**
+ * Модалка ручного маппинга колонок Excel к каноническим именам.
+ * Открывается, когда upload вернул 422 с code="MISSING_COLUMNS".
+ */
+const ColumnMappingModal = ({open, onClose, missing, ...rest}: Props) => (
+    <Modal opened={open} onClose={onClose} title="Сопоставление колонок" size={620} centered>
+        <MappingForm key={missing.join(',')} missing={missing} onClose={onClose} {...rest} />
+    </Modal>
+);
 
 export default ColumnMappingModal;

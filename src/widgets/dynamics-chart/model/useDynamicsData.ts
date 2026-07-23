@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { message } from 'antd';
+import { notifications } from '@mantine/notifications';
 import { dynamicsApi } from '@/entities/dynamics/api/dynamicsApiSlice';
 import type { DynamicsResponse } from '@/entities/dynamics';
 import type { FilterParams } from '@/entities/filter';
@@ -44,7 +44,7 @@ export const useDynamicsData = () => {
 
             setData(mergedData);
         } catch (error) {
-            message.error('Ошибка при загрузке данных динамики');
+            notifications.show({ color: 'brandRed', message: 'Ошибка при загрузке данных динамики' });
             console.error('Ошибка загрузки данных динамики:', error);
         } finally {
             setIsLoading(false);
