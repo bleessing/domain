@@ -161,7 +161,7 @@ const OstatkiStepContent = ({
                     <Dropzone.Reject><IconX size={34} color={nc.red} /></Dropzone.Reject>
                     <Dropzone.Idle><IconFileSpreadsheet size={34} color={nc.dimmed} /></Dropzone.Idle>
                     <div>
-                        <Text size="sm" c={nc.text}>Кликните или перетащите файл для загрузки</Text>
+                        <Text size="sm" c={nc.text}>Перетащите файл или нажмите</Text>
                         <Text size="xs" c="dimmed">Форматы: .xlsx, .xls</Text>
                     </div>
                 </Group>

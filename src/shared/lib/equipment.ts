@@ -5,9 +5,9 @@
 export type EquipmentType = 'PIPES' | 'PUMPS' | 'RODS';
 
 export const EQUIPMENT_LABELS: Record<EquipmentType, string> = {
-    PIPES: 'Трубы',
+    PIPES: 'НКТ',
     PUMPS: 'ШГН',
-    RODS: 'Штанги',
+    RODS: 'НШ',
 };
 
 export const ALL_EQUIPMENT: EquipmentType[] = ['PIPES', 'PUMPS', 'RODS'];

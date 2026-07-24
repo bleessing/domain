@@ -179,7 +179,7 @@ const FileStepContent = ({
                 maxFiles={1}
                 radius="md"
             >
-                <DropzoneBody label="Кликните или перетащите файл для загрузки" />
+                <DropzoneBody label="Перетащите файл или нажмите" />
             </Dropzone>
 
             {uploadedFile && (
@@ -201,7 +201,7 @@ const FileStepContent = ({
                         maxFiles={1}
                         radius="md"
                     >
-                        <DropzoneBody label="Файл ДВ — без него Код_ремонта_3 берётся из «Код ремонта»" />
+                        <DropzoneBody label="Файл ДВ (дефектная ведомость) — необязательно" />
                     </Dropzone>
                     {dvFile && (
                         <Group gap={6} mt={6}>

@@ -92,7 +92,7 @@ const UploadingPage = () => {
             return;
         }
         const queryString = buildQueryParams(equipmentType ?? undefined);
-        notifications.show({color: 'tatneft', message: 'Переход к анализу…'});
+        notifications.show({color: 'tatneft', message: 'Открываем дашборд…'});
         setTimeout(() => navigate(`/main?${queryString}`), 400);
     };
 

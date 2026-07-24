@@ -3,7 +3,6 @@ import {
     Container, Paper, Stack, Group, Box,
     Title, Text, Button, Select, SegmentedControl,
 } from '@mantine/core';
-import {DatePickerInput} from '@mantine/dates';
 import {notifications} from '@mantine/notifications';
 import {useNavigate, useSearchParams} from 'react-router';
 import {
@@ -22,7 +21,7 @@ import {nc} from '@/shared/lib/mantineTheme';
 type ZvzMonths = '1' | '2';
 
 const REPORT_OPTIONS: {value: ReportKind; label: string; hint: string}[] = [
-    {value: 'rss-report', label: 'РСС', hint: 'Ремонты по выбранному периоду. Опционально — окно ЗВ.'},
+    {value: 'rss-report', label: 'РСС', hint: 'Ремонты по выбранному периоду.'},
     {value: 'balance-v2', label: 'Баланс', hint: 'Материальный баланс: снапшоты остатков подставляются автоматически.'},
     {value: 'otbrakovka', label: 'Отбраковка', hint: 'Только лист «Отбраковка» без полного баланса.'},
 ];
@@ -59,13 +58,10 @@ function CalculateInner() {
     const [periodFromKey, setPeriodFromKey] = useState<string | null>(null);
     const [periodToKey, setPeriodToKey] = useState<string | null>(null);
 
-    // Окно ЗВ (только РСС, опционально) — DatePickerInput range отдаёт ISO-строки.
-    const [zvzRange, setZvzRange] = useState<[string | null, string | null]>([null, null]);
     const [zvzMonths, setZvzMonths] = useState<ZvzMonths>('2');
 
     const [isBuilding, setIsBuilding] = useState(false);
 
-    const showsZvzWindow = reportKind === 'rss-report';
     const showsZvzMonths = reportKind === 'balance-v2' || reportKind === 'otbrakovka';
 
     useEffect(() => {
@@ -134,11 +130,7 @@ function CalculateInner() {
             let filename: string;
 
             if (reportKind === 'rss-report') {
-                blob = await exportRssReport({
-                    ...base,
-                    zvz_date_from: zvzRange[0] ?? undefined,
-                    zvz_date_to: zvzRange[1] ?? undefined,
-                });
+                blob = await exportRssReport({...base});
                 filename = `rss_report_${equipment}_${rangeKey}.xlsx`;
             } else if (reportKind === 'balance-v2') {
                 blob = await exportBalanceV2({
@@ -157,12 +149,11 @@ function CalculateInner() {
             }
 
             downloadBlob(blob, filename);
-            notifications.show({color: 'tatneft', message: 'Отчёт сформирован и скачан'});
+            notifications.show({color: 'tatneft', message: 'Отчёт рассчитан и скачан'});
             // Чистим поля под следующий отчёт. Тип отчёта и оборудование оставляем —
             // это контекст, при их сбросе пришлось бы перезапрашивать периоды.
             setPeriodFromKey(null);
             setPeriodToKey(null);
-            setZvzRange([null, null]);
             setZvzMonths('2');
         } catch (error) {
             notifications.show({color: 'brandRed', message: 'Ошибка при формировании отчёта'});
@@ -200,7 +191,7 @@ function CalculateInner() {
 
             <Container size={680} py={56}>
                 <Stack gap={4} mb={28}>
-                    <Title order={2} fw={700} c={nc.text}>Новый отчёт</Title>
+                    <Title order={2} fw={700} c={nc.text}>Параметры отчёта</Title>
                     <Text c="dimmed" size="sm">
                         Отчёт формируется на сервере и скачивается в формате Excel.
                     </Text>
@@ -252,23 +243,9 @@ function CalculateInner() {
                             />
                         </Group>
 
-                        {showsZvzWindow && (
-                            <DatePickerInput
-                                type="range"
-                                label="Окно ЗВ — «Дата вывоза со скважины»"
-                                description="Опционально"
-                                placeholder="Выберите диапазон"
-                                value={zvzRange}
-                                onChange={setZvzRange}
-                                valueFormat="YYYY-MM-DD"
-                                clearable
-                                popoverProps={{withinPortal: false}}
-                            />
-                        )}
-
                         {showsZvzMonths && (
                             <Stack gap={8}>
-                                <Text size="sm" fw={500} c={nc.text}>Окно ZVZ для «Отбраковки»</Text>
+                                <Text size="sm" fw={500} c={nc.text}>Окно Завоза/Вывоза для «Отбраковки»</Text>
                                 <SegmentedControl
                                     value={zvzMonths}
                                     onChange={(v) => setZvzMonths(v as ZvzMonths)}
@@ -284,7 +261,7 @@ function CalculateInner() {
                                 loading={isBuilding}
                                 disabled={!periodFromKey || !periodToKey}
                             >
-                                Сформировать отчёт
+                                Рассчитать отчёт
                             </Button>
                         </Group>
                     </Stack>
