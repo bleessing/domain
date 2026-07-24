@@ -82,9 +82,7 @@ const HomePage = () => {
                     ))}
                 </SimpleGrid>
 
-                <Text ta="center" c="dimmed" size="xs" mt={56}>
-                    ЦТР · Платформа мониторинга оборудования
-                </Text>
+
             </Container>
         </Box>
     );
